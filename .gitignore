@@ -36,3 +36,9 @@ coverage/
 # Misc
 *.tsbuildinfo
 
+# Example projects
+examples/*/node_modules/
+examples/*/.next/
+examples/*/dist/
+examples/*/.env*.local
+
