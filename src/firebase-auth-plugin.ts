@@ -49,23 +49,23 @@ const createOrUpdateUser = async (
 	let user = null;
 	if (account) {
 		// User exists with this Firebase account
-		user = await adapter.getUser({ id: account.userId });
+		user = await internalAdapter.getUser({ id: account.userId });
 	} else if (decodedToken.email) {
 		// Try to find user by email
-		user = await adapter.getUser({
+		user = await internalAdapter.getUser({
 			email: decodedToken.email,
 		});
 	}
 
 	if (!user) {
-		user = await adapter.createUser({
+		user = await internalAdapter.createUser({
 			email: decodedToken.email || null,
 			name: decodedToken.name || null,
 			image: decodedToken.picture || null,
 			emailVerified: decodedToken.email_verified || false,
 		});
 	} else {
-		user = await adapter.updateUser({
+		user = await internalAdapter.updateUser({
 			id: user.id,
 			name: decodedToken.name || user.name,
 			image: decodedToken.picture || user.image,

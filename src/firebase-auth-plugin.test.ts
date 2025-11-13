@@ -29,13 +29,13 @@ describe("firebaseAuthPlugin", () => {
 	};
 
 	const mockAdapter = {
-		getUser: vi.fn(),
-		createUser: vi.fn(),
-		updateUser: vi.fn(),
 		createAccount: vi.fn(),
 	};
 
 	const mockInternalAdapter = {
+		getUser: vi.fn(),
+		createUser: vi.fn(),
+		updateUser: vi.fn(),
 		createSession: vi.fn(),
 	};
 
@@ -73,9 +73,9 @@ describe("firebaseAuthPlugin", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mockAdapter.getUser.mockResolvedValue(null);
-		mockAdapter.createUser.mockResolvedValue(mockUser);
-		mockAdapter.updateUser.mockResolvedValue(mockUser);
+		mockInternalAdapter.getUser.mockResolvedValue(null);
+		mockInternalAdapter.createUser.mockResolvedValue(mockUser);
+		mockInternalAdapter.updateUser.mockResolvedValue(mockUser);
 		mockAdapter.createAccount.mockResolvedValue({});
 		mockInternalAdapter.createSession.mockResolvedValue(mockSession);
 		mockAdminAuth.verifyIdToken.mockResolvedValue(mockDecodedToken);
