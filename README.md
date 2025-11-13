@@ -7,7 +7,6 @@
 **Firebase Authentication plugin for Better Auth.** Integrate Firebase Auth with Better Auth, allowing users to authenticate using Firebase Auth and create Better Auth sessions.
 
 - **Install:** `pnpm add @yultyyev/better-auth-firebase-auth firebase-admin firebase better-auth`
-- **Status:** 🚧 In Development
 
 ---
 
@@ -39,14 +38,15 @@ bun add @yultyyev/better-auth-firebase-auth firebase-admin firebase better-auth
 
 ## Features
 
-This plugin will support:
+- ✅ Client-side and server-side token generation modes
+- ✅ Optional override of Better Auth's built-in email/password flow
+- ✅ Password reset functionality
+- ✅ Server-side only mode (hidden endpoints, all auth through hooks)
+- ✅ Sign in with Google
+- ✅ Sign in with email/password
+- ✅ Full TypeScript support
 
-- Client-side and server-side token generation modes
-- Optional override of Better Auth's built-in email/password flow
-- Password reset functionality
-- Server-side only mode (hidden endpoints, all auth through hooks)
-
-## Planned Usage
+## Usage
 
 ### Client-side token generation (default)
 
@@ -91,7 +91,7 @@ export const auth = betterAuth({
 });
 ```
 
-## Planned Options
+## Options
 
 ```ts
 firebaseAuthPlugin({
@@ -109,7 +109,7 @@ See the [minimal example](./examples/minimal) for a complete Next.js setup demon
 
 ## Contributing
 
-Contributions are welcome! Please read our [AI Assistant Guidelines](./AGENTS.md) for development setup and code style.
+Contributions are welcome! Please follow the [Better Auth Contributing Guide](https://www.better-auth.com/docs/reference/contributing) for development setup and code style.
 
 ## License
 
