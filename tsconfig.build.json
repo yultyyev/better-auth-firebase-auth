@@ -1,0 +1,15 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"declaration": true,
+		"emitDeclarationOnly": false,
+		"module": "ESNext",
+		"target": "ES2020",
+		"moduleResolution": "Bundler",
+		"rootDir": "src",
+		"noEmit": false
+	},
+	"include": ["src"]
+}
+

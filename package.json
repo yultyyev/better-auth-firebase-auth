@@ -1,0 +1,70 @@
+{
+	"name": "@yultyyev/better-auth-firebase-auth",
+	"version": "0.0.0-development",
+	"private": false,
+	"description": "Firebase Authentication plugin for Better Auth",
+	"author": "Slava Yultyyev <yultyyev@gmail.com>",
+	"license": "MIT",
+	"type": "module",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs"
+		}
+	},
+	"files": ["dist", "README.md", "LICENSE"],
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"clean": "rimraf dist",
+		"test": "vitest run",
+		"lint": "biome check --formatter-enabled=false",
+		"lint:fix": "biome check --write",
+		"lint:fix:unsafe": "biome check --write --unsafe",
+		"prepublishOnly": "pnpm run build"
+	},
+	"engines": {
+		"node": ">=22"
+	},
+	"packageManager": "pnpm@10.0.0",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/yultyyev/better-auth-firebase-auth.git"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"keywords": [
+		"better-auth",
+		"firebase",
+		"firebase-auth",
+		"authentication",
+		"authjs",
+		"nextauth",
+		"oauth",
+		"session",
+		"typescript"
+	],
+	"peerDependencies": {
+		"better-auth": "*",
+		"firebase-admin": ">=13",
+		"firebase": ">=9",
+		"typescript": "^5.0.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.2",
+		"@semantic-release/changelog": "^6.0.3",
+		"@semantic-release/commit-analyzer": "^13.0.0",
+		"@semantic-release/github": "^11.0.1",
+		"@semantic-release/npm": "^12.0.1",
+		"@semantic-release/release-notes-generator": "^12.1.0",
+		"rimraf": "^6.0.1",
+		"semantic-release": "^24.0.0",
+		"typescript": "^5.9.3",
+		"vitest": "^4.0.5"
+	}
+}
+
