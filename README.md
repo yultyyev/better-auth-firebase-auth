@@ -36,6 +36,34 @@ yarn add @yultyyev/better-auth-firebase-auth firebase-admin firebase better-auth
 bun add @yultyyev/better-auth-firebase-auth firebase-admin firebase better-auth
 ```
 
+## Import Paths
+
+To prevent bundling issues where client-side code tries to include server-side dependencies (like `firebase-admin`), the package provides separate export paths:
+
+### Client-side (React components, browser code)
+
+```ts
+import { firebaseAuthClientPlugin } from "@yultyyev/better-auth-firebase-auth/client";
+```
+
+Use this import in client components, browser-only code, or anywhere the code will run in the browser. This ensures bundlers don't try to include `firebase-admin`.
+
+### Server-side (API routes, server components)
+
+```ts
+import { firebaseAuthPlugin } from "@yultyyev/better-auth-firebase-auth/server";
+```
+
+Use this import in API routes, server-side code, or server components where Node.js is available.
+
+### Main export (backward compatibility)
+
+```ts
+import { firebaseAuthPlugin, firebaseAuthClientPlugin } from "@yultyyev/better-auth-firebase-auth";
+```
+
+The main entry point still exports both plugins for backward compatibility, but using the specific paths above is recommended to avoid bundling issues.
+
 ## Features
 
 - ✅ Client-side and server-side token generation modes
@@ -50,9 +78,11 @@ bun add @yultyyev/better-auth-firebase-auth firebase-admin firebase better-auth
 
 ### Client-side token generation (default)
 
+**Server-side setup (API routes, `lib/auth.ts`):**
+
 ```ts
 import { betterAuth } from "better-auth";
-import { firebaseAuthPlugin } from "@yultyyev/better-auth-firebase-auth";
+import { firebaseAuthPlugin } from "@yultyyev/better-auth-firebase-auth/server";
 import { getAuth } from "firebase-admin/auth";
 
 export const auth = betterAuth({
@@ -65,13 +95,29 @@ export const auth = betterAuth({
 });
 ```
 
+**Client-side setup (React components, `lib/auth-client.ts`):**
+
+```ts
+import { createAuthClient } from "better-auth/react";
+import { firebaseAuthClientPlugin } from "@yultyyev/better-auth-firebase-auth/client";
+
+export const authClient = createAuthClient({
+  plugins: [
+    firebaseAuthClientPlugin({
+      // Optional: Add Firebase client config for additional features
+    }),
+  ],
+});
+```
+
 ### Server-side token generation
+
+**Server-side setup (API routes, `lib/auth.ts`):**
 
 ```ts
 import { betterAuth } from "better-auth";
-import { firebaseAuthPlugin } from "@yultyyev/better-auth-firebase-auth";
+import { firebaseAuthPlugin } from "@yultyyev/better-auth-firebase-auth/server";
 import { getAuth } from "firebase-admin/auth";
-import { initializeApp } from "firebase/app";
 import type { FirebaseOptions } from "firebase/app";
 
 const firebaseConfig: FirebaseOptions = {
@@ -86,6 +132,21 @@ export const auth = betterAuth({
       useClientSideTokens: false, // Server handles Firebase Auth
       firebaseAdminAuth: getAuth(),
       firebaseConfig, // Required for server-side mode
+    }),
+  ],
+});
+```
+
+**Client-side setup (React components, `lib/auth-client.ts`):**
+
+```ts
+import { createAuthClient } from "better-auth/react";
+import { firebaseAuthClientPlugin } from "@yultyyev/better-auth-firebase-auth/client";
+
+export const authClient = createAuthClient({
+  plugins: [
+    firebaseAuthClientPlugin({
+      // No Firebase config needed - server handles everything
     }),
   ],
 });

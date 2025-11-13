@@ -14,6 +14,14 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./client": {
+      "types": "./dist/firebase-auth-client-plugin.d.ts",
+      "import": "./dist/firebase-auth-client-plugin.js"
+    },
+    "./server": {
+      "types": "./dist/firebase-auth-plugin.d.ts",
+      "import": "./dist/firebase-auth-plugin.js"
     }
   },
   "files": [

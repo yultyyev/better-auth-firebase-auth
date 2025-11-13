@@ -1,4 +1,4 @@
-import { firebaseAuthClientPlugin } from "@yultyyev/better-auth-firebase-auth";
+import { firebaseAuthClientPlugin } from "@yultyyev/better-auth-firebase-auth/client";
 import { createAuthClient } from "better-auth/client";
 
 export const authClient = createAuthClient({
