@@ -15,12 +15,14 @@ This document provides additional context for AI assistants working on this Bett
 **Phase 3: Server Plugin - Endpoints** ✅ Complete
 **Phase 4: Server Plugin - Hooks** ✅ Complete
 **Phase 5: Client Plugin - Methods** ✅ Complete
+**Phase 6: Tests** ✅ Complete
 
 The project currently has:
 - Configuration files: `package.json`, `tsconfig.json`, `tsconfig.build.json`, `vitest.config.ts`, `biome.json`
 - Build tooling: `.gitignore`, `.releaserc.json`
 - Documentation: `README.md`, `AGENTS.md`, `LICENSE`
 - Source code: `src/types.ts`, `src/firebase-auth-plugin.ts`, `src/firebase-auth-client-plugin.ts`, `src/index.ts`
+- Tests: `src/firebase-auth-plugin.test.ts`, `src/firebase-auth-client-plugin.test.ts`
 
 ## Project Structure
 
