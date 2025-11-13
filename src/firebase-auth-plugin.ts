@@ -1,10 +1,17 @@
 import type { BetterAuthPlugin } from "better-auth";
 import { createAuthEndpoint, APIError } from "better-auth/api";
+import { createAuthMiddleware } from "better-auth/plugins";
 import { getAuth } from "firebase-admin/auth";
 import type { FirebaseAuthPluginOptions } from "./types";
 
 const createOrUpdateUser = async (
-	ctx: Parameters<Parameters<typeof createAuthEndpoint>[2]>[0],
+	ctx: {
+		context: {
+			adapter: any;
+			internalAdapter: any;
+		};
+		json: (data: any) => Promise<Response> | Response;
+	},
 	decodedToken: {
 		uid: string;
 		email?: string | null;
@@ -298,8 +305,101 @@ export const firebaseAuthPlugin = (
 		);
 	}
 
+	const hooks: BetterAuthPlugin["hooks"] = {};
+
+	if (overrideEmailPasswordFlow) {
+		if (!firebaseConfig) {
+			throw new Error(
+				"firebaseConfig is required when overrideEmailPasswordFlow is true",
+			);
+		}
+
+		const handleEmailAuth = async (
+			ctx: Parameters<Parameters<typeof createAuthMiddleware>[0]>[0],
+			isSignUp: boolean,
+		) => {
+			const { email, password, name } = ctx.body as {
+				email: string;
+				password: string;
+				name?: string;
+			};
+
+			if (!email || !password) {
+				throw new APIError("BAD_REQUEST", {
+					message: "email and password are required",
+				});
+			}
+
+			try {
+				const firebaseApp = await import("firebase/app");
+				const {
+					getAuth,
+					signInWithEmailAndPassword,
+					createUserWithEmailAndPassword,
+					updateProfile,
+				} = await import("firebase/auth");
+
+				const apps = firebaseApp.getApps();
+				const app =
+					apps.length === 0
+						? firebaseApp.initializeApp(
+								firebaseConfig,
+								"better-auth-firebase",
+							)
+						: apps[0]!;
+
+				const auth = getAuth(app);
+				let userCredential;
+
+				if (isSignUp) {
+					userCredential = await createUserWithEmailAndPassword(
+						auth,
+						email,
+						password,
+					);
+					if (name) {
+						await updateProfile(userCredential.user, { displayName: name });
+					}
+				} else {
+					userCredential = await signInWithEmailAndPassword(auth, email, password);
+				}
+
+				const idToken = await userCredential.user.getIdToken();
+				const decodedToken = await adminAuth.verifyIdToken(idToken);
+				const result = await createOrUpdateUser(ctx, decodedToken, idToken);
+
+				return ctx.json(result);
+			} catch (error) {
+				if (error instanceof Error) {
+					throw new APIError("UNAUTHORIZED", {
+						message: `Firebase authentication failed: ${error.message}`,
+					});
+				}
+				throw error;
+			}
+		};
+
+		hooks.before = [
+			{
+				matcher: (context) => context.path.startsWith("/sign-in/email"),
+				handler: createAuthMiddleware(async (ctx) => {
+					const response = await handleEmailAuth(ctx, false);
+					return { response };
+				}),
+			},
+			{
+				matcher: (context) => context.path.startsWith("/sign-up/email"),
+				handler: createAuthMiddleware(async (ctx) => {
+					const response = await handleEmailAuth(ctx, true);
+					return { response };
+				}),
+			},
+		];
+	}
+
 	return {
 		id: "firebase-auth",
 		...(Object.keys(endpoints).length > 0 && { endpoints }),
+		...(hooks.before && hooks.before.length > 0 && { hooks }),
 	};
 };

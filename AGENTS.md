@@ -13,6 +13,7 @@ This document provides additional context for AI assistants working on this Bett
 **Phase 1: Project Foundation** ✅ Complete
 **Phase 2: Types and Core Structure** ✅ Complete
 **Phase 3: Server Plugin - Endpoints** ✅ Complete
+**Phase 4: Server Plugin - Hooks** ✅ Complete
 
 The project currently has:
 - Configuration files: `package.json`, `tsconfig.json`, `tsconfig.build.json`, `vitest.config.ts`, `biome.json`
@@ -24,7 +25,7 @@ The project currently has:
 
 ```
 src/
-  firebase-auth-plugin.ts      # Server plugin implementation (endpoints complete)
+  firebase-auth-plugin.ts      # Server plugin implementation (endpoints and hooks complete)
   firebase-auth-client-plugin.ts # Client plugin implementation (basic structure)
   index.ts                      # Export both plugins and types
   types.ts                      # Plugin-specific types and interfaces
@@ -113,8 +114,10 @@ if (!token) {
 - When `serverSideOnly: true`, endpoints are NOT registered
 - When `serverSideOnly: true`, client plugin returns empty object from `getActions`
 - When `useClientSideTokens: false`, `firebaseConfig` is required
+- When `overrideEmailPasswordFlow: true`, `firebaseConfig` is required
 - All endpoints should be conditionally registered based on `serverSideOnly` flag
 - Password reset requires Firebase Client SDK (needs `firebaseConfig`)
+- Hooks intercept Better Auth's `/sign-in/email` and `/sign-up/email` endpoints when `overrideEmailPasswordFlow: true`
 
 ## Code Style
 
