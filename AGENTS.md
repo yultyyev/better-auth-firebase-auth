@@ -16,6 +16,7 @@ This document provides additional context for AI assistants working on this Bett
 **Phase 4: Server Plugin - Hooks** ✅ Complete
 **Phase 5: Client Plugin - Methods** ✅ Complete
 **Phase 6: Tests** ✅ Complete
+**Phase 7: CI/CD and Example Project** ✅ Complete
 
 The project currently has:
 - Configuration files: `package.json`, `tsconfig.json`, `tsconfig.build.json`, `vitest.config.ts`, `biome.json`
@@ -33,11 +34,11 @@ src/
   index.ts                      # Export both plugins and types
   types.ts                      # Plugin-specific types and interfaces
 examples/
-  minimal/                      # Minimal Next.js example project (planned)
+  minimal/                      # Minimal Next.js example project
 .github/
   workflows/
-    release.yml                 # CI/CD release workflow (planned)
-  RELEASE.md                    # Release process documentation (planned)
+    release.yml                 # CI/CD release workflow
+    ci.yml                      # CI workflow for PRs
 ```
 
 ## Key Implementation Patterns

@@ -103,6 +103,10 @@ firebaseAuthPlugin({
 });
 ```
 
+## Example
+
+See the [minimal example](./examples/minimal) for a complete Next.js setup demonstrating the plugin usage.
+
 ## Contributing
 
 Contributions are welcome! Please read our [AI Assistant Guidelines](./AGENTS.md) for development setup and code style.
