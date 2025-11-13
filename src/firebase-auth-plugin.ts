@@ -1,32 +1,61 @@
 import type { BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthEndpoint } from "better-auth/api";
 import { createAuthMiddleware } from "better-auth/plugins";
+import type { FirebaseOptions } from "firebase/app";
 import { getAuth } from "firebase-admin/auth";
-import type { FirebaseAuthPluginOptions } from "./types";
+import type { AuthResponse, FirebaseAuthPluginOptions } from "./types";
+
+// Context type for Better Auth endpoints and hooks
+// Using any for adapter to maintain compatibility with Better Auth's DBAdapter type
+type Context = {
+	context: {
+		adapter: any;
+		internalAdapter: any;
+	};
+	json: (data: any) => Promise<Response> | Response;
+};
+
+type DecodedToken = {
+	uid: string;
+	email?: string | null;
+	name?: string | null;
+	picture?: string | null;
+	email_verified?: boolean;
+	exp?: number;
+};
 
 const createOrUpdateUser = async (
-	ctx: {
-		context: {
-			adapter: any;
-			internalAdapter: any;
-		};
-		json: (data: any) => Promise<Response> | Response;
-	},
-	decodedToken: {
-		uid: string;
-		email?: string | null;
-		name?: string | null;
-		picture?: string | null;
-		email_verified?: boolean;
-		exp?: number;
-	},
+	ctx: Context,
+	decodedToken: DecodedToken,
 	idToken: string,
-) => {
+	sessionExpiresInDays: number = 7,
+): Promise<AuthResponse> => {
 	const { adapter, internalAdapter } = ctx.context;
 
-	let user = await adapter.getUser({
-		email: decodedToken.email || undefined,
-	});
+	// First, try to find user by existing Firebase account
+	// Check if adapter has getAccount method (some adapters may not support it)
+	let account = null;
+	if (typeof adapter.getAccount === "function") {
+		try {
+			account = await adapter.getAccount({
+				provider: "firebase",
+				providerAccountId: decodedToken.uid,
+			});
+		} catch {
+			// Account doesn't exist, continue
+		}
+	}
+
+	let user = null;
+	if (account) {
+		// User exists with this Firebase account
+		user = await adapter.getUser({ id: account.userId });
+	} else if (decodedToken.email) {
+		// Try to find user by email
+		user = await adapter.getUser({
+			email: decodedToken.email,
+		});
+	}
 
 	if (!user) {
 		user = await adapter.createUser({
@@ -44,17 +73,39 @@ const createOrUpdateUser = async (
 		});
 	}
 
-	await adapter.createAccount({
+	// Use upsertAccount if available, otherwise fall back to createAccount
+	const accountData = {
 		provider: "firebase",
 		providerAccountId: decodedToken.uid,
 		userId: user.id,
 		accessToken: idToken,
 		expiresAt: decodedToken.exp ? new Date(decodedToken.exp * 1000) : null,
-	});
+	};
+
+	if (typeof adapter.upsertAccount === "function") {
+		await adapter.upsertAccount(accountData);
+	} else if (typeof adapter.createAccount === "function") {
+		try {
+			await adapter.createAccount(accountData);
+		} catch (error) {
+			// If account already exists, ignore the error (account already exists)
+			// This handles cases where the account was created in a previous sign-in
+			if (
+				error instanceof Error &&
+				!error.message.includes("already exists") &&
+				!error.message.includes("unique constraint") &&
+				!error.message.includes("duplicate")
+			) {
+				throw error;
+			}
+		}
+	}
 
 	const session = await internalAdapter.createSession({
 		userId: user.id,
-		expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+		expiresAt: new Date(
+			Date.now() + 1000 * 60 * 60 * 24 * sessionExpiresInDays,
+		),
 	});
 
 	return {
@@ -72,6 +123,16 @@ const createOrUpdateUser = async (
 	};
 };
 
+const getFirebaseApp = async (
+	firebaseConfig: FirebaseOptions,
+): Promise<any> => {
+	const firebaseApp = await import("firebase/app");
+	const apps = firebaseApp.getApps();
+	return apps.length === 0
+		? firebaseApp.initializeApp(firebaseConfig, "better-auth-firebase")
+		: apps[0]!;
+};
+
 export const firebaseAuthPlugin = (
 	options: FirebaseAuthPluginOptions = {},
 ): BetterAuthPlugin => {
@@ -81,6 +142,7 @@ export const firebaseAuthPlugin = (
 		serverSideOnly = false,
 		firebaseAdminAuth,
 		firebaseConfig,
+		sessionExpiresInDays = 7,
 	} = options;
 
 	const adminAuth = firebaseAdminAuth || getAuth();
@@ -104,7 +166,12 @@ export const firebaseAuthPlugin = (
 
 				try {
 					const decodedToken = await adminAuth.verifyIdToken(idToken);
-					const result = await createOrUpdateUser(ctx, decodedToken, idToken);
+					const result = await createOrUpdateUser(
+						ctx,
+						decodedToken,
+						idToken,
+						sessionExpiresInDays,
+					);
 					return ctx.json(result);
 				} catch (error) {
 					if (error instanceof Error) {
@@ -150,20 +217,11 @@ export const firebaseAuthPlugin = (
 					}
 
 					try {
-						const firebaseApp = await import("firebase/app");
 						const { getAuth, signInWithEmailAndPassword } = await import(
 							"firebase/auth"
 						);
 
-						const apps = firebaseApp.getApps();
-						const app =
-							apps.length === 0
-								? firebaseApp.initializeApp(
-										firebaseConfig,
-										"better-auth-firebase",
-									)
-								: apps[0]!;
-
+						const app = await getFirebaseApp(firebaseConfig);
 						const auth = getAuth(app);
 						const userCredential = await signInWithEmailAndPassword(
 							auth,
@@ -183,7 +241,12 @@ export const firebaseAuthPlugin = (
 
 				try {
 					const decodedToken = await adminAuth.verifyIdToken(idToken);
-					const result = await createOrUpdateUser(ctx, decodedToken, idToken);
+					const result = await createOrUpdateUser(
+						ctx,
+						decodedToken,
+						idToken,
+						sessionExpiresInDays,
+					);
 					return ctx.json(result);
 				} catch (error) {
 					if (error instanceof Error) {
@@ -217,20 +280,11 @@ export const firebaseAuthPlugin = (
 				}
 
 				try {
-					const firebaseApp = await import("firebase/app");
 					const { getAuth, sendPasswordResetEmail } = await import(
 						"firebase/auth"
 					);
 
-					const apps = firebaseApp.getApps();
-					const app =
-						apps.length === 0
-							? firebaseApp.initializeApp(
-									firebaseConfig,
-									"better-auth-firebase",
-								)
-							: apps[0]!;
-
+					const app = await getFirebaseApp(firebaseConfig);
 					const auth = getAuth(app);
 					await sendPasswordResetEmail(auth, email);
 
@@ -273,20 +327,11 @@ export const firebaseAuthPlugin = (
 				}
 
 				try {
-					const firebaseApp = await import("firebase/app");
 					const { getAuth, confirmPasswordReset } = await import(
 						"firebase/auth"
 					);
 
-					const apps = firebaseApp.getApps();
-					const app =
-						apps.length === 0
-							? firebaseApp.initializeApp(
-									firebaseConfig,
-									"better-auth-firebase",
-								)
-							: apps[0]!;
-
+					const app = await getFirebaseApp(firebaseConfig);
 					const auth = getAuth(app);
 					await confirmPasswordReset(auth, oobCode, newPassword);
 
@@ -332,7 +377,6 @@ export const firebaseAuthPlugin = (
 			}
 
 			try {
-				const firebaseApp = await import("firebase/app");
 				const {
 					getAuth,
 					signInWithEmailAndPassword,
@@ -340,12 +384,7 @@ export const firebaseAuthPlugin = (
 					updateProfile,
 				} = await import("firebase/auth");
 
-				const apps = firebaseApp.getApps();
-				const app =
-					apps.length === 0
-						? firebaseApp.initializeApp(firebaseConfig, "better-auth-firebase")
-						: apps[0]!;
-
+				const app = await getFirebaseApp(firebaseConfig);
 				const auth = getAuth(app);
 				let userCredential:
 					| Awaited<ReturnType<typeof createUserWithEmailAndPassword>>
@@ -370,7 +409,12 @@ export const firebaseAuthPlugin = (
 
 				const idToken = await userCredential.user.getIdToken();
 				const decodedToken = await adminAuth.verifyIdToken(idToken);
-				const result = await createOrUpdateUser(ctx, decodedToken, idToken);
+				const result = await createOrUpdateUser(
+					ctx,
+					decodedToken,
+					idToken,
+					sessionExpiresInDays,
+				);
 
 				return ctx.json(result);
 			} catch (error) {

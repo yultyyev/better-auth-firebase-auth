@@ -7,6 +7,7 @@ export interface FirebaseAuthPluginOptions {
 	serverSideOnly?: boolean;
 	firebaseAdminAuth?: Auth;
 	firebaseConfig?: FirebaseOptions;
+	sessionExpiresInDays?: number;
 }
 
 export interface SignInWithGoogleRequest {
