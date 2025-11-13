@@ -1,12 +1,12 @@
 import type { BetterAuthClientPlugin } from "better-auth/client";
 import type { firebaseAuthPlugin } from "./firebase-auth-plugin";
 import type {
-	SignInWithGoogleRequest,
-	SignInWithEmailRequest,
-	SendPasswordResetRequest,
-	ConfirmPasswordResetRequest,
 	AuthResponse,
+	ConfirmPasswordResetRequest,
 	FirebaseAuthPluginOptions,
+	SendPasswordResetRequest,
+	SignInWithEmailRequest,
+	SignInWithGoogleRequest,
 } from "./types";
 
 type FirebaseAuthPlugin = typeof firebaseAuthPlugin;
@@ -72,4 +72,3 @@ export const firebaseAuthClientPlugin = (
 		},
 	};
 };
-

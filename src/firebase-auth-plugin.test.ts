@@ -1,7 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { firebaseAuthPlugin } from "./firebase-auth-plugin";
-import { APIError } from "better-auth/api";
-import type { FirebaseAuthPluginOptions } from "./types";
 
 vi.mock("firebase-admin/auth", () => ({
 	getAuth: vi.fn(() => ({
@@ -107,7 +105,9 @@ describe("firebaseAuthPlugin", () => {
 				firebaseAuthPlugin({
 					overrideEmailPasswordFlow: true,
 				});
-			}).toThrow("firebaseConfig is required when overrideEmailPasswordFlow is true");
+			}).toThrow(
+				"firebaseConfig is required when overrideEmailPasswordFlow is true",
+			);
 		});
 	});
 
@@ -231,4 +231,3 @@ describe("firebaseAuthPlugin", () => {
 		});
 	});
 });
-

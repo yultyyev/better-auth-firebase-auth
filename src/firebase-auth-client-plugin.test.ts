@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { firebaseAuthClientPlugin } from "./firebase-auth-client-plugin";
 
 describe("firebaseAuthClientPlugin", () => {
@@ -20,13 +20,21 @@ describe("firebaseAuthClientPlugin", () => {
 
 		it("should return empty actions when serverSideOnly is true", () => {
 			const plugin = firebaseAuthClientPlugin({ serverSideOnly: true });
-			const actions = plugin.getActions?.(mockFetch as any, {} as any, {} as any);
+			const actions = plugin.getActions?.(
+				mockFetch as any,
+				{} as any,
+				{} as any,
+			);
 			expect(actions).toEqual({});
 		});
 
 		it("should return actions when serverSideOnly is false", () => {
 			const plugin = firebaseAuthClientPlugin({ serverSideOnly: false });
-			const actions = plugin.getActions?.(mockFetch as any, {} as any, {} as any);
+			const actions = plugin.getActions?.(
+				mockFetch as any,
+				{} as any,
+				{} as any,
+			);
 			expect(actions).toBeDefined();
 			expect(actions?.signInWithGoogle).toBeDefined();
 			expect(actions?.signInWithEmail).toBeDefined();
@@ -38,7 +46,11 @@ describe("firebaseAuthClientPlugin", () => {
 	describe("signInWithGoogle", () => {
 		it("should call correct endpoint with idToken", async () => {
 			const plugin = firebaseAuthClientPlugin();
-			const actions = plugin.getActions?.(mockFetch as any, {} as any, {} as any);
+			const actions = plugin.getActions?.(
+				mockFetch as any,
+				{} as any,
+				{} as any,
+			);
 			if (!actions) throw new Error("Actions should be defined");
 
 			mockFetch.mockResolvedValue({
@@ -62,7 +74,11 @@ describe("firebaseAuthClientPlugin", () => {
 
 		it("should accept optional fetchOptions", async () => {
 			const plugin = firebaseAuthClientPlugin();
-			const actions = plugin.getActions?.(mockFetch as any, {} as any, {} as any);
+			const actions = plugin.getActions?.(
+				mockFetch as any,
+				{} as any,
+				{} as any,
+			);
 			if (!actions) throw new Error("Actions should be defined");
 
 			mockFetch.mockResolvedValue({
@@ -87,7 +103,11 @@ describe("firebaseAuthClientPlugin", () => {
 	describe("signInWithEmail", () => {
 		it("should call correct endpoint with idToken", async () => {
 			const plugin = firebaseAuthClientPlugin();
-			const actions = plugin.getActions?.(mockFetch as any, {} as any, {} as any);
+			const actions = plugin.getActions?.(
+				mockFetch as any,
+				{} as any,
+				{} as any,
+			);
 			if (!actions) throw new Error("Actions should be defined");
 
 			mockFetch.mockResolvedValue({
@@ -111,7 +131,11 @@ describe("firebaseAuthClientPlugin", () => {
 
 		it("should call correct endpoint with email and password", async () => {
 			const plugin = firebaseAuthClientPlugin();
-			const actions = plugin.getActions?.(mockFetch as any, {} as any, {} as any);
+			const actions = plugin.getActions?.(
+				mockFetch as any,
+				{} as any,
+				{} as any,
+			);
 			if (!actions) throw new Error("Actions should be defined");
 
 			mockFetch.mockResolvedValue({
@@ -143,7 +167,11 @@ describe("firebaseAuthClientPlugin", () => {
 	describe("sendPasswordReset", () => {
 		it("should call correct endpoint with email", async () => {
 			const plugin = firebaseAuthClientPlugin();
-			const actions = plugin.getActions?.(mockFetch as any, {} as any, {} as any);
+			const actions = plugin.getActions?.(
+				mockFetch as any,
+				{} as any,
+				{} as any,
+			);
 			if (!actions) throw new Error("Actions should be defined");
 
 			mockFetch.mockResolvedValue({
@@ -169,7 +197,11 @@ describe("firebaseAuthClientPlugin", () => {
 	describe("confirmPasswordReset", () => {
 		it("should call correct endpoint with oobCode and newPassword", async () => {
 			const plugin = firebaseAuthClientPlugin();
-			const actions = plugin.getActions?.(mockFetch as any, {} as any, {} as any);
+			const actions = plugin.getActions?.(
+				mockFetch as any,
+				{} as any,
+				{} as any,
+			);
 			if (!actions) throw new Error("Actions should be defined");
 
 			mockFetch.mockResolvedValue({
@@ -198,4 +230,3 @@ describe("firebaseAuthClientPlugin", () => {
 		});
 	});
 });
-

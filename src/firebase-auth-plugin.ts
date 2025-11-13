@@ -1,5 +1,5 @@
 import type { BetterAuthPlugin } from "better-auth";
-import { createAuthEndpoint, APIError } from "better-auth/api";
+import { APIError, createAuthEndpoint } from "better-auth/api";
 import { createAuthMiddleware } from "better-auth/plugins";
 import { getAuth } from "firebase-admin/auth";
 import type { FirebaseAuthPluginOptions } from "./types";
@@ -151,10 +151,9 @@ export const firebaseAuthPlugin = (
 
 					try {
 						const firebaseApp = await import("firebase/app");
-						const {
-							getAuth,
-							signInWithEmailAndPassword,
-						} = await import("firebase/auth");
+						const { getAuth, signInWithEmailAndPassword } = await import(
+							"firebase/auth"
+						);
 
 						const apps = firebaseApp.getApps();
 						const app =
@@ -275,7 +274,9 @@ export const firebaseAuthPlugin = (
 
 				try {
 					const firebaseApp = await import("firebase/app");
-					const { getAuth, confirmPasswordReset } = await import("firebase/auth");
+					const { getAuth, confirmPasswordReset } = await import(
+						"firebase/auth"
+					);
 
 					const apps = firebaseApp.getApps();
 					const app =
@@ -342,14 +343,13 @@ export const firebaseAuthPlugin = (
 				const apps = firebaseApp.getApps();
 				const app =
 					apps.length === 0
-						? firebaseApp.initializeApp(
-								firebaseConfig,
-								"better-auth-firebase",
-							)
+						? firebaseApp.initializeApp(firebaseConfig, "better-auth-firebase")
 						: apps[0]!;
 
 				const auth = getAuth(app);
-				let userCredential;
+				let userCredential:
+					| Awaited<ReturnType<typeof createUserWithEmailAndPassword>>
+					| Awaited<ReturnType<typeof signInWithEmailAndPassword>>;
 
 				if (isSignUp) {
 					userCredential = await createUserWithEmailAndPassword(
@@ -361,7 +361,11 @@ export const firebaseAuthPlugin = (
 						await updateProfile(userCredential.user, { displayName: name });
 					}
 				} else {
-					userCredential = await signInWithEmailAndPassword(auth, email, password);
+					userCredential = await signInWithEmailAndPassword(
+						auth,
+						email,
+						password,
+					);
 				}
 
 				const idToken = await userCredential.user.getIdToken();
