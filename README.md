@@ -68,11 +68,50 @@ The main entry point still exports both plugins for backward compatibility, but 
 
 - ✅ Client-side and server-side token generation modes
 - ✅ Optional override of Better Auth's built-in email/password flow
-- ✅ Password reset functionality
+- ✅ Password reset functionality with email verification
 - ✅ Server-side only mode (hidden endpoints, all auth through hooks)
 - ✅ Sign in with Google
 - ✅ Sign in with email/password
 - ✅ Full TypeScript support
+
+## Supported Authentication Methods
+
+This plugin currently supports the following Firebase Authentication methods:
+
+### ✅ Currently Supported
+
+- **Google Sign-In** - OAuth provider (`signInWithGoogle`)
+- **Email/Password** - Email-based authentication (`signInWithEmail`)
+  - Sign up with email/password
+  - Sign in with email/password
+  - Password reset flow with email verification
+  - Custom reset URLs
+
+### ❌ Not Yet Supported
+
+The following Firebase Auth providers are available in Firebase but not yet implemented in this plugin:
+
+**Social Providers:**
+- Facebook
+- GitHub
+- Twitter/X
+- Microsoft
+- Apple
+- Yahoo
+- LinkedIn
+
+**Phone Authentication:**
+- Phone number sign-in with SMS verification
+- Multi-factor authentication (MFA)
+
+**Other Methods:**
+- Anonymous authentication
+- Custom authentication tokens
+- SAML/OpenID Connect providers
+- Game Center (iOS)
+- Play Games (Android)
+
+**Note:** You can still use these providers directly with the Firebase Auth SDK in your application, but they won't automatically create Better Auth sessions. Contributions to add support for additional providers are welcome! See the [Contributing](#contributing) section.
 
 ## Usage
 

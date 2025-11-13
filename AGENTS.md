@@ -20,6 +20,55 @@ This document provides additional context for AI assistants working on this Bett
 **Phase 6: Tests** ✅ Complete
 **Phase 7: CI/CD and Example Project** ✅ Complete
 
+## Supported Firebase Auth Providers
+
+The plugin currently implements a subset of Firebase Authentication methods:
+
+### Implemented Providers
+
+- **Google OAuth** (`/firebase-auth/sign-in-with-google` endpoint)
+- **Email/Password** (`/firebase-auth/sign-in-with-email` endpoint)
+- **Password Reset** with email verification and custom URLs
+  - `/firebase-auth/send-password-reset` - Send reset email
+  - `/firebase-auth/verify-password-reset-code` - Verify reset code
+  - `/firebase-auth/confirm-password-reset` - Complete password reset
+
+### Not Implemented (but available in Firebase Auth)
+
+**Social Providers:**
+- Facebook, GitHub, Twitter/X, Microsoft, Apple, Yahoo, LinkedIn
+
+**Phone/SMS Authentication:**
+- Phone number sign-in with SMS verification
+- Multi-factor authentication (MFA)
+
+**Other Methods:**
+- Anonymous authentication
+- Custom authentication tokens
+- SAML/OIDC providers
+- Game Center (iOS), Play Games (Android)
+
+### Key Implementation Pattern
+
+All authentication methods follow the same core flow:
+
+1. **Get Firebase ID token** (client-side or server-side)
+2. **Verify token** with Firebase Admin SDK (`adminAuth.verifyIdToken()`)
+3. **Create/update Better Auth user** via `internalAdapter.createUser()` / `internalAdapter.updateUser()`
+4. **Create Better Auth session** via `internalAdapter.createSession()`
+5. **Store account link** via `adapter.createAccount()` or `adapter.upsertAccount()` with `provider: "firebase"`
+
+When adding new providers, follow the `signInWithGoogle` endpoint pattern as a reference implementation.
+
+### Important Notes
+
+- All Firebase authentication methods use `provider: "firebase"` in account records
+- `providerAccountId` should be the Firebase UID
+- User operations must use `internalAdapter` (not `adapter`) for proper database hooks and secondary storage support
+- Account operations use `adapter` directly
+
+## Project Files
+
 The project is complete and includes:
 - **Configuration files:** `package.json`, `tsconfig.json`, `tsconfig.build.json`, `vitest.config.ts`, `biome.json`
 - **Build tooling:** `.gitignore`, `.releaserc.json`
@@ -30,8 +79,8 @@ The project is complete and includes:
   - `src/firebase-auth-client-plugin.ts` - Client plugin with methods
   - `src/index.ts` - Main exports
 - **Tests:**
-  - `src/firebase-auth-plugin.test.ts` - Server plugin tests (12 tests)
-  - `src/firebase-auth-client-plugin.test.ts` - Client plugin tests (9 tests)
+  - `src/firebase-auth-plugin.test.ts` - Server plugin tests (14 tests)
+  - `src/firebase-auth-client-plugin.test.ts` - Client plugin tests (10 tests)
 - **CI/CD:** GitHub Actions workflows for testing and releases
 - **Example:** Minimal Next.js example project in `examples/minimal/`
 
