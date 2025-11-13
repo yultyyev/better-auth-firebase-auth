@@ -229,4 +229,38 @@ describe("firebaseAuthClientPlugin", () => {
 			);
 		});
 	});
+
+	describe("verifyPasswordResetCode", () => {
+		it("should call correct endpoint with oobCode", async () => {
+			const plugin = firebaseAuthClientPlugin();
+			const actions = plugin.getActions?.(
+				mockFetch as any,
+				{} as any,
+				{} as any,
+			);
+			if (!actions) throw new Error("Actions should be defined");
+
+			mockFetch.mockResolvedValue({
+				json: () =>
+					Promise.resolve({
+						valid: true,
+						email: "test@example.com",
+					}),
+			});
+
+			await actions.verifyPasswordResetCode({
+				oobCode: "oob-code-123",
+			});
+
+			expect(mockFetch).toHaveBeenCalledWith(
+				"/firebase-auth/verify-password-reset-code",
+				expect.objectContaining({
+					method: "POST",
+					body: JSON.stringify({
+						oobCode: "oob-code-123",
+					}),
+				}),
+			);
+		});
+	});
 });

@@ -164,6 +164,36 @@ describe("firebaseAuthPlugin", () => {
 		});
 	});
 
+	describe("verifyPasswordResetCode endpoint", () => {
+		it("should register verifyPasswordResetCode endpoint", () => {
+			const plugin = firebaseAuthPlugin({
+				firebaseConfig: {
+					apiKey: "test-api-key",
+					authDomain: "test.firebaseapp.com",
+					projectId: "test-project",
+				},
+			});
+
+			const endpoint = plugin.endpoints?.verifyPasswordResetCode;
+			expect(endpoint).toBeDefined();
+		});
+	});
+
+	describe("passwordResetUrl option", () => {
+		it("should include passwordResetUrl in plugin options", () => {
+			const plugin = firebaseAuthPlugin({
+				firebaseConfig: {
+					apiKey: "test-api-key",
+					authDomain: "test.firebaseapp.com",
+					projectId: "test-project",
+				},
+				passwordResetUrl: "https://myapp.com/reset-password",
+			});
+
+			expect(plugin.endpoints?.sendPasswordReset).toBeDefined();
+		});
+	});
+
 	describe("hooks", () => {
 		it("should register hooks when overrideEmailPasswordFlow is true", () => {
 			const plugin = firebaseAuthPlugin({

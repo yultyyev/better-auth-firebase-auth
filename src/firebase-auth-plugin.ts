@@ -143,6 +143,7 @@ export const firebaseAuthPlugin = (
 		firebaseAdminAuth,
 		firebaseConfig,
 		sessionExpiresInDays = 7,
+		passwordResetUrl,
 	} = options;
 
 	const adminAuth = firebaseAdminAuth || getAuth();
@@ -279,19 +280,28 @@ export const firebaseAuthPlugin = (
 					});
 				}
 
-				try {
-					const { getAuth, sendPasswordResetEmail } = await import(
-						"firebase/auth"
-					);
+			try {
+				const { getAuth, sendPasswordResetEmail } = await import(
+					"firebase/auth"
+				);
 
-					const app = await getFirebaseApp(firebaseConfig);
-					const auth = getAuth(app);
-					await sendPasswordResetEmail(auth, email);
+				const app = await getFirebaseApp(firebaseConfig);
+				const auth = getAuth(app);
 
-					return ctx.json({
-						success: true,
-						message: "Password reset email sent",
-					});
+				// Build actionCodeSettings if passwordResetUrl is provided
+				const actionCodeSettings = passwordResetUrl
+					? {
+							url: passwordResetUrl,
+							handleCodeInApp: true,
+						}
+					: undefined;
+
+				await sendPasswordResetEmail(auth, email, actionCodeSettings);
+
+				return ctx.json({
+					success: true,
+					message: "Password reset email sent",
+				});
 				} catch (error) {
 					if (error instanceof Error) {
 						throw new APIError("BAD_REQUEST", {
@@ -343,6 +353,51 @@ export const firebaseAuthPlugin = (
 					if (error instanceof Error) {
 						throw new APIError("BAD_REQUEST", {
 							message: `Failed to confirm password reset: ${error.message}`,
+						});
+					}
+					throw error;
+				}
+			},
+		);
+
+		endpoints.verifyPasswordResetCode = createAuthEndpoint(
+			"/firebase-auth/verify-password-reset-code",
+			{
+				method: "POST",
+			},
+			async (ctx) => {
+				const { oobCode } = ctx.body as { oobCode: string };
+
+				if (!oobCode) {
+					throw new APIError("BAD_REQUEST", {
+						message: "oobCode is required",
+					});
+				}
+
+				if (!firebaseConfig) {
+					throw new APIError("BAD_REQUEST", {
+						message:
+							"firebaseConfig is required for password reset verification",
+					});
+				}
+
+				try {
+					const { getAuth, verifyPasswordResetCode } = await import(
+						"firebase/auth"
+					);
+
+					const app = await getFirebaseApp(firebaseConfig);
+					const auth = getAuth(app);
+					const email = await verifyPasswordResetCode(auth, oobCode);
+
+					return ctx.json({
+						valid: true,
+						email,
+					});
+				} catch (error) {
+					if (error instanceof Error) {
+						throw new APIError("BAD_REQUEST", {
+							message: `Invalid or expired reset code: ${error.message}`,
 						});
 					}
 					throw error;

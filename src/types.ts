@@ -8,6 +8,7 @@ export interface FirebaseAuthPluginOptions {
 	firebaseAdminAuth?: Auth;
 	firebaseConfig?: FirebaseOptions;
 	sessionExpiresInDays?: number;
+	passwordResetUrl?: string;
 }
 
 export interface SignInWithGoogleRequest {
@@ -27,6 +28,15 @@ export interface SendPasswordResetRequest {
 export interface ConfirmPasswordResetRequest {
 	oobCode: string;
 	newPassword: string;
+}
+
+export interface VerifyPasswordResetCodeRequest {
+	oobCode: string;
+}
+
+export interface VerifyPasswordResetCodeResponse {
+	valid: boolean;
+	email: string;
 }
 
 export interface AuthResponse {

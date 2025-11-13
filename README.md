@@ -152,6 +152,192 @@ export const authClient = createAuthClient({
 });
 ```
 
+## Password Reset
+
+### Firebase Console Setup (Required)
+
+Before using password reset, configure your Firebase project:
+
+#### 1. Enable Email/Password Authentication
+- Go to [Firebase Console](https://console.firebase.google.com/)
+- Select your project → **Authentication** → **Sign-in method**
+- Enable **Email/Password** provider
+- Click **Save**
+
+#### 2. Add Authorized Domains (CRITICAL for Custom URLs)
+- Go to **Authentication** → **Settings** → **Authorized domains**
+- Add your application domains:
+  - Development: `localhost` (already included by default)
+  - Production: `yourdomain.com`, `www.yourdomain.com`
+- ⚠️ **Important**: Any domain used in `passwordResetUrl` MUST be in this list, or Firebase will reject the request
+
+#### 3. Customize Email Template (Optional)
+- Go to **Authentication** → **Templates** → **Password reset**
+- Customize the email subject, body, and sender name
+- The email will contain a link to your `passwordResetUrl` with the reset code
+
+### Plugin Configuration
+
+```ts
+import { betterAuth } from "better-auth";
+import { firebaseAuthPlugin } from "@yultyyev/better-auth-firebase-auth/server";
+
+export const auth = betterAuth({
+  plugins: [
+    firebaseAuthPlugin({
+      firebaseConfig: {
+        apiKey: process.env.FIREBASE_API_KEY!,
+        authDomain: process.env.FIREBASE_AUTH_DOMAIN!,
+        projectId: process.env.FIREBASE_PROJECT_ID!,
+      },
+      passwordResetUrl: "https://myapp.com/reset-password", // Your custom reset page
+      // OR omit passwordResetUrl to use Firebase's default URL
+    }),
+  ],
+});
+```
+
+**Note**: If `passwordResetUrl` is not provided, Firebase uses its default URL (`https://YOUR_PROJECT.firebaseapp.com/__/auth/action`), which works without any additional setup but doesn't match your app's branding.
+
+### Password Reset Flow
+
+#### Step 1: Request Password Reset
+
+```typescript
+await authClient.sendPasswordReset({ 
+  email: "user@example.com" 
+});
+// User receives email with link like: https://myapp.com/reset-password?oobCode=ABC123&mode=resetPassword
+```
+
+#### Step 2: Extract Code from URL
+
+On your reset password page (`/reset-password`):
+
+```typescript
+import { extractOobCodeFromUrl } from "@yultyyev/better-auth-firebase-auth/client";
+
+// Extracts oobCode from current URL query parameters
+const oobCode = extractOobCodeFromUrl(); 
+
+if (!oobCode) {
+  // Show error: Invalid or missing reset code
+  return;
+}
+```
+
+#### Step 3: Verify Reset Code (Optional but Recommended)
+
+```typescript
+try {
+  const { valid, email } = await authClient.verifyPasswordResetCode({ 
+    oobCode 
+  });
+  
+  // Show reset form with email pre-filled
+  console.log("Reset password for:", email);
+} catch (error) {
+  // Show error: Invalid or expired reset code
+}
+```
+
+#### Step 4: Confirm New Password
+
+```typescript
+try {
+  await authClient.confirmPasswordReset({
+    oobCode,
+    newPassword: "newSecurePassword123",
+  });
+  
+  // Success! Redirect to login page
+} catch (error) {
+  // Show error: Failed to reset password
+}
+```
+
+### Complete Example
+
+```tsx
+// app/reset-password/page.tsx
+"use client";
+
+import { useState, useEffect } from "react";
+import { authClient } from "@/lib/auth-client";
+import { extractOobCodeFromUrl } from "@yultyyev/better-auth-firebase-auth/client";
+
+export default function ResetPasswordPage() {
+  const [oobCode, setOobCode] = useState<string | null>(null);
+  const [email, setEmail] = useState<string>("");
+  const [newPassword, setNewPassword] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    const code = extractOobCodeFromUrl();
+    if (!code) {
+      setError("Invalid or missing reset code");
+      return;
+    }
+    setOobCode(code);
+
+    // Verify the code
+    authClient.verifyPasswordResetCode({ oobCode: code })
+      .then(({ email }) => setEmail(email))
+      .catch(() => setError("Invalid or expired reset code"));
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!oobCode) return;
+
+    try {
+      await authClient.confirmPasswordReset({
+        oobCode,
+        newPassword,
+      });
+      setSuccess(true);
+    } catch (err) {
+      setError("Failed to reset password");
+    }
+  };
+
+  if (error) return <div>Error: {error}</div>;
+  if (success) return <div>Password reset successful! <a href="/login">Login</a></div>;
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <h1>Reset Password</h1>
+      <p>Email: {email}</p>
+      <input
+        type="password"
+        placeholder="New password"
+        value={newPassword}
+        onChange={(e) => setNewPassword(e.target.value)}
+        required
+      />
+      <button type="submit">Reset Password</button>
+    </form>
+  );
+}
+```
+
+### Troubleshooting
+
+**Error: "Invalid action code"**
+- The reset link has expired (default: 1 hour)
+- The code has already been used
+- Solution: Request a new password reset email
+
+**Error: "Unauthorized domain"**
+- Your `passwordResetUrl` domain is not in Firebase's authorized domains list
+- Solution: Add the domain in Firebase Console → Authentication → Settings → Authorized domains
+
+**Email not received**
+- Check spam/junk folder
+- Verify the email address is registered in Firebase Auth
+- Check Firebase Console → Authentication → Templates for email settings
+
 ## Options
 
 ```ts
@@ -161,6 +347,8 @@ firebaseAuthPlugin({
   serverSideOnly?: boolean; // Default: false
   firebaseAdminAuth?: admin.auth.Auth; // Optional
   firebaseConfig?: FirebaseOptions; // Required for server-side mode
+  passwordResetUrl?: string; // Custom URL for password reset page
+  sessionExpiresInDays?: number; // Default: 7
 });
 ```
 
