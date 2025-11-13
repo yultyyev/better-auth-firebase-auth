@@ -8,6 +8,19 @@
 
 - **Install:** `pnpm add @yultyyev/better-auth-firebase-auth firebase-admin firebase better-auth`
 
+## Why Firebase Auth?
+
+Firebase Authentication provides several advantages when integrated with Better Auth:
+
+- **🔥 Built-in Email Service** - Password reset emails, email verification, and account management emails work out of the box. No need to set up SendGrid, Resend, or other email providers.
+- **🌍 Global Infrastructure** - Firebase Auth is backed by Google's infrastructure, ensuring high availability and low latency worldwide.
+- **🔐 Battle-Tested Security** - Industry-standard OAuth flows and security best practices built-in.
+- **📱 Multi-Platform SDKs** - Consistent authentication across web, iOS, and Android applications.
+- **🎨 Customizable Email Templates** - Easily customize email templates directly in the Firebase Console.
+- **🚀 Quick Setup** - Get authentication working in minutes without managing your own auth infrastructure.
+
+**Use Case:** Perfect for applications that want robust authentication with email functionality without the complexity of setting up and maintaining email infrastructure.
+
 ---
 
 ## Installation
