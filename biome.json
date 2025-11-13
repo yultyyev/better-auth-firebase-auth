@@ -16,7 +16,9 @@
         "noTsIgnore": "error",
         "noDebugger": "error"
       },
-      "performance": { "noDelete": "error" },
+      "performance": {
+        "noDelete": "error"
+      },
       "complexity": {
         "noUselessSwitchCase": "warn",
         "noUselessTypeConstraint": "warn"
@@ -31,20 +33,40 @@
   "overrides": [
     {
       "includes": ["**/examples/**"],
-      "linter": { "rules": { "correctness": { "noUnusedImports": "off" } } }
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off"
+          }
+        }
+      }
     },
     {
       "includes": ["**/*.json"],
-      "formatter": { "indentStyle": "space", "indentWidth": 2 }
+      "formatter": {
+        "indentStyle": "space",
+        "indentWidth": 2
+      }
     }
   ],
   "files": {
     "includes": [
       "**",
       "!**/dist",
-      "!**/node_modules",
+      "!**/build",
+      "!**/.next",
+      "!**/.svelte-kit",
+      "!**/.contentlayer",
       "!**/.turbo",
-      "!**/examples/**"
+      "!**/.nuxt",
+      "!**/.source",
+      "!**/.expo",
+      "!**/.cache",
+      "!**/dev/cloudflare/drizzle",
+      "!**/playwright-report",
+      "!**/.output",
+      "!**/.tmp",
+      "!**/node_modules"
     ]
   }
 }
