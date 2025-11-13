@@ -80,12 +80,12 @@ examples/
 import { createAuthEndpoint } from "better-auth/api";
 
 endpoints: {
-  signInWithGoogle: createAuthEndpoint("/firebase-auth/sign-in-with-google", {
-    method: "POST",
-  }, async (ctx) => {
-    // Implementation
-    return ctx.json({ success: true });
-  }),
+	signInWithGoogle: createAuthEndpoint("/firebase-auth/sign-in-with-google", {
+		method: "POST",
+	}, async (ctx) => {
+		// Implementation
+		return ctx.json({ success: true });
+	}),
 }
 ```
 
@@ -95,15 +95,15 @@ endpoints: {
 import { createAuthMiddleware } from "better-auth/plugins";
 
 hooks: {
-  before: [
-    {
-      matcher: (context) => context.path.startsWith("/sign-in/email"),
-      handler: createAuthMiddleware(async (ctx) => {
-        // Implementation
-        return { context: ctx };
-      }),
-    },
-  ],
+	before: [
+		{
+			matcher: (context) => context.path.startsWith("/sign-in/email"),
+			handler: createAuthMiddleware(async (ctx) => {
+				// Implementation
+				return { context: ctx };
+			}),
+		},
+	],
 }
 ```
 
@@ -113,7 +113,7 @@ hooks: {
 import { APIError } from "better-auth/api";
 
 if (!token) {
-  throw new APIError("BAD_REQUEST", { message: "Token is required" });
+	throw new APIError("BAD_REQUEST", { message: "Token is required" });
 }
 ```
 

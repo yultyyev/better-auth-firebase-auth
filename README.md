@@ -56,12 +56,12 @@ import { firebaseAuthPlugin } from "@yultyyev/better-auth-firebase-auth";
 import { getAuth } from "firebase-admin/auth";
 
 export const auth = betterAuth({
-	plugins: [
-		firebaseAuthPlugin({
-			useClientSideTokens: true, // Client generates Firebase tokens
-			firebaseAdminAuth: getAuth(), // Firebase Admin SDK instance
-		}),
-	],
+  plugins: [
+    firebaseAuthPlugin({
+      useClientSideTokens: true, // Client generates Firebase tokens
+      firebaseAdminAuth: getAuth(), // Firebase Admin SDK instance
+    }),
+  ],
 });
 ```
 
@@ -75,19 +75,19 @@ import { initializeApp } from "firebase/app";
 import type { FirebaseOptions } from "firebase/app";
 
 const firebaseConfig: FirebaseOptions = {
-	apiKey: process.env.FIREBASE_API_KEY!,
-	authDomain: process.env.FIREBASE_AUTH_DOMAIN!,
-	projectId: process.env.FIREBASE_PROJECT_ID!,
+  apiKey: process.env.FIREBASE_API_KEY!,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.FIREBASE_PROJECT_ID!,
 };
 
 export const auth = betterAuth({
-	plugins: [
-		firebaseAuthPlugin({
-			useClientSideTokens: false, // Server handles Firebase Auth
-			firebaseAdminAuth: getAuth(),
-			firebaseConfig, // Required for server-side mode
-		}),
-	],
+  plugins: [
+    firebaseAuthPlugin({
+      useClientSideTokens: false, // Server handles Firebase Auth
+      firebaseAdminAuth: getAuth(),
+      firebaseConfig, // Required for server-side mode
+    }),
+  ],
 });
 ```
 
@@ -95,11 +95,11 @@ export const auth = betterAuth({
 
 ```ts
 firebaseAuthPlugin({
-	useClientSideTokens?: boolean; // Default: true
-	overrideEmailPasswordFlow?: boolean; // Default: false
-	serverSideOnly?: boolean; // Default: false
-	firebaseAdminAuth?: admin.auth.Auth; // Optional
-	firebaseConfig?: FirebaseOptions; // Required for server-side mode
+  useClientSideTokens?: boolean; // Default: true
+  overrideEmailPasswordFlow?: boolean; // Default: false
+  serverSideOnly?: boolean; // Default: false
+  firebaseAdminAuth?: admin.auth.Auth; // Optional
+  firebaseConfig?: FirebaseOptions; // Required for server-side mode
 });
 ```
 
