@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@yultyyev/better-auth-firebase-auth": "workspace:*",
+    "better-auth-firebase-auth": "workspace:*",
     "better-auth": "latest",
     "firebase": "^11.0.0",
     "firebase-admin": "^13.0.0",

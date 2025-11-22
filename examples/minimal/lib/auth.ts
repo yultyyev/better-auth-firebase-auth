@@ -1,5 +1,5 @@
-import { firebaseAuthPlugin } from "@yultyyev/better-auth-firebase-auth/server";
 import { betterAuth } from "better-auth";
+import { firebaseAuthPlugin } from "better-auth-firebase-auth/server";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 

@@ -60,30 +60,30 @@ export const firebaseAuthClientPlugin = (
 					});
 				},
 
-			async confirmPasswordReset(
-				data: ConfirmPasswordResetRequest,
-				fetchOptions?: RequestInit,
-			): Promise<{ success: boolean; message: string }> {
-				return fetch("/firebase-auth/confirm-password-reset", {
-					method: "POST",
-					body: JSON.stringify(data),
-					...fetchOptions,
-				});
-			},
+				async confirmPasswordReset(
+					data: ConfirmPasswordResetRequest,
+					fetchOptions?: RequestInit,
+				): Promise<{ success: boolean; message: string }> {
+					return fetch("/firebase-auth/confirm-password-reset", {
+						method: "POST",
+						body: JSON.stringify(data),
+						...fetchOptions,
+					});
+				},
 
-			async verifyPasswordResetCode(
-				data: VerifyPasswordResetCodeRequest,
-				fetchOptions?: RequestInit,
-			): Promise<VerifyPasswordResetCodeResponse> {
-				return fetch("/firebase-auth/verify-password-reset-code", {
-					method: "POST",
-					body: JSON.stringify(data),
-					...fetchOptions,
-				});
-			},
-		};
-	},
-};
+				async verifyPasswordResetCode(
+					data: VerifyPasswordResetCodeRequest,
+					fetchOptions?: RequestInit,
+				): Promise<VerifyPasswordResetCodeResponse> {
+					return fetch("/firebase-auth/verify-password-reset-code", {
+						method: "POST",
+						body: JSON.stringify(data),
+						...fetchOptions,
+					});
+				},
+			};
+		},
+	};
 };
 
 /**
@@ -100,8 +100,9 @@ export const firebaseAuthClientPlugin = (
  * console.log(code); // "ABC123"
  */
 export function extractOobCodeFromUrl(url?: string): string | null {
-	const urlToUse = url || (typeof window !== "undefined" ? window.location.href : "");
-	
+	const urlToUse =
+		url || (typeof window !== "undefined" ? window.location.href : "");
+
 	if (!urlToUse) {
 		return null;
 	}

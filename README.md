@@ -1,12 +1,12 @@
 # better-auth-firebase-auth
 
-[![npm version](https://img.shields.io/npm/v/@yultyyev/better-auth-firebase-auth.svg)](https://www.npmjs.com/package/@yultyyev/better-auth-firebase-auth)
+[![npm version](https://img.shields.io/npm/v/better-auth-firebase-auth.svg)](https://www.npmjs.com/package/better-auth-firebase-auth)
 [![CI](https://github.com/yultyyev/better-auth-firebase-auth/actions/workflows/release.yml/badge.svg)](https://github.com/yultyyev/better-auth-firebase-auth/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
 **Firebase Authentication plugin for Better Auth.** Integrate Firebase Auth with Better Auth, allowing users to authenticate using Firebase Auth and create Better Auth sessions.
 
-- **Install:** `pnpm add @yultyyev/better-auth-firebase-auth firebase-admin firebase better-auth`
+- **Install:** `pnpm add better-auth-firebase-auth firebase-admin firebase better-auth`
 
 ## Why Firebase Auth?
 
@@ -28,25 +28,25 @@ Firebase Authentication provides several advantages when integrated with Better 
 # npm
 
 ```bash
-npm install @yultyyev/better-auth-firebase-auth firebase-admin firebase better-auth
+npm install better-auth-firebase-auth firebase-admin firebase better-auth
 ```
 
 # pnpm
 
 ```bash
-pnpm add @yultyyev/better-auth-firebase-auth firebase-admin firebase better-auth
+pnpm add better-auth-firebase-auth firebase-admin firebase better-auth
 ```
 
 # yarn
 
 ```bash
-yarn add @yultyyev/better-auth-firebase-auth firebase-admin firebase better-auth
+yarn add better-auth-firebase-auth firebase-admin firebase better-auth
 ```
 
 # bun
 
 ```bash
-bun add @yultyyev/better-auth-firebase-auth firebase-admin firebase better-auth
+bun add better-auth-firebase-auth firebase-admin firebase better-auth
 ```
 
 ## Import Paths
@@ -56,7 +56,7 @@ To prevent bundling issues where client-side code tries to include server-side d
 ### Client-side (React components, browser code)
 
 ```ts
-import { firebaseAuthClientPlugin } from "@yultyyev/better-auth-firebase-auth/client";
+import { firebaseAuthClientPlugin } from "better-auth-firebase-auth/client";
 ```
 
 Use this import in client components, browser-only code, or anywhere the code will run in the browser. This ensures bundlers don't try to include `firebase-admin`.
@@ -64,7 +64,7 @@ Use this import in client components, browser-only code, or anywhere the code wi
 ### Server-side (API routes, server components)
 
 ```ts
-import { firebaseAuthPlugin } from "@yultyyev/better-auth-firebase-auth/server";
+import { firebaseAuthPlugin } from "better-auth-firebase-auth/server";
 ```
 
 Use this import in API routes, server-side code, or server components where Node.js is available.
@@ -72,7 +72,7 @@ Use this import in API routes, server-side code, or server components where Node
 ### Main export (backward compatibility)
 
 ```ts
-import { firebaseAuthPlugin, firebaseAuthClientPlugin } from "@yultyyev/better-auth-firebase-auth";
+import { firebaseAuthPlugin, firebaseAuthClientPlugin } from "better-auth-firebase-auth";
 ```
 
 The main entry point still exports both plugins for backward compatibility, but using the specific paths above is recommended to avoid bundling issues.
@@ -134,7 +134,7 @@ The following Firebase Auth providers are available in Firebase but not yet impl
 
 ```ts
 import { betterAuth } from "better-auth";
-import { firebaseAuthPlugin } from "@yultyyev/better-auth-firebase-auth/server";
+import { firebaseAuthPlugin } from "better-auth-firebase-auth/server";
 import { getAuth } from "firebase-admin/auth";
 
 export const auth = betterAuth({
@@ -151,7 +151,7 @@ export const auth = betterAuth({
 
 ```ts
 import { createAuthClient } from "better-auth/react";
-import { firebaseAuthClientPlugin } from "@yultyyev/better-auth-firebase-auth/client";
+import { firebaseAuthClientPlugin } from "better-auth-firebase-auth/client";
 
 export const authClient = createAuthClient({
   plugins: [
@@ -168,7 +168,7 @@ export const authClient = createAuthClient({
 
 ```ts
 import { betterAuth } from "better-auth";
-import { firebaseAuthPlugin } from "@yultyyev/better-auth-firebase-auth/server";
+import { firebaseAuthPlugin } from "better-auth-firebase-auth/server";
 import { getAuth } from "firebase-admin/auth";
 import type { FirebaseOptions } from "firebase/app";
 
@@ -193,7 +193,7 @@ export const auth = betterAuth({
 
 ```ts
 import { createAuthClient } from "better-auth/react";
-import { firebaseAuthClientPlugin } from "@yultyyev/better-auth-firebase-auth/client";
+import { firebaseAuthClientPlugin } from "better-auth-firebase-auth/client";
 
 export const authClient = createAuthClient({
   plugins: [
@@ -232,7 +232,7 @@ Before using password reset, configure your Firebase project:
 
 ```ts
 import { betterAuth } from "better-auth";
-import { firebaseAuthPlugin } from "@yultyyev/better-auth-firebase-auth/server";
+import { firebaseAuthPlugin } from "better-auth-firebase-auth/server";
 
 export const auth = betterAuth({
   plugins: [
@@ -267,7 +267,7 @@ await authClient.sendPasswordReset({
 On your reset password page (`/reset-password`):
 
 ```typescript
-import { extractOobCodeFromUrl } from "@yultyyev/better-auth-firebase-auth/client";
+import { extractOobCodeFromUrl } from "better-auth-firebase-auth/client";
 
 // Extracts oobCode from current URL query parameters
 const oobCode = extractOobCodeFromUrl(); 
@@ -316,7 +316,7 @@ try {
 
 import { useState, useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
-import { extractOobCodeFromUrl } from "@yultyyev/better-auth-firebase-auth/client";
+import { extractOobCodeFromUrl } from "better-auth-firebase-auth/client";
 
 export default function ResetPasswordPage() {
   const [oobCode, setOobCode] = useState<string | null>(null);

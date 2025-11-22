@@ -280,28 +280,28 @@ export const firebaseAuthPlugin = (
 					});
 				}
 
-			try {
-				const { getAuth, sendPasswordResetEmail } = await import(
-					"firebase/auth"
-				);
+				try {
+					const { getAuth, sendPasswordResetEmail } = await import(
+						"firebase/auth"
+					);
 
-				const app = await getFirebaseApp(firebaseConfig);
-				const auth = getAuth(app);
+					const app = await getFirebaseApp(firebaseConfig);
+					const auth = getAuth(app);
 
-				// Build actionCodeSettings if passwordResetUrl is provided
-				const actionCodeSettings = passwordResetUrl
-					? {
-							url: passwordResetUrl,
-							handleCodeInApp: true,
-						}
-					: undefined;
+					// Build actionCodeSettings if passwordResetUrl is provided
+					const actionCodeSettings = passwordResetUrl
+						? {
+								url: passwordResetUrl,
+								handleCodeInApp: true,
+							}
+						: undefined;
 
-				await sendPasswordResetEmail(auth, email, actionCodeSettings);
+					await sendPasswordResetEmail(auth, email, actionCodeSettings);
 
-				return ctx.json({
-					success: true,
-					message: "Password reset email sent",
-				});
+					return ctx.json({
+						success: true,
+						message: "Password reset email sent",
+					});
 				} catch (error) {
 					if (error instanceof Error) {
 						throw new APIError("BAD_REQUEST", {
