@@ -408,6 +408,23 @@ firebaseAuthPlugin({
 
 See the [minimal example](./examples/minimal) for a complete Next.js setup demonstrating the plugin usage.
 
+## Firestore Adapter
+
+For storing Better Auth data in Firestore, see [@yultyyev/better-auth-firestore](https://www.npmjs.com/package/@yultyyev/better-auth-firestore):
+
+```bash
+npm install @yultyyev/better-auth-firestore
+```
+
+```ts
+import { firestoreAdapter } from "@yultyyev/better-auth-firestore";
+
+export const auth = betterAuth({
+  database: firestoreAdapter(),
+  plugins: [firebaseAuthPlugin({ ... })],
+});
+```
+
 ## Contributing
 
 Contributions are welcome! Please follow the [Better Auth Contributing Guide](https://www.better-auth.com/docs/reference/contributing) for development setup and code style.
