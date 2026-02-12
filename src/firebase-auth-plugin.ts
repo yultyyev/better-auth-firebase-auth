@@ -484,14 +484,14 @@ export const firebaseAuthPlugin = (
 
 		hooks.before = [
 			{
-				matcher: (context) => context.path.startsWith("/sign-in/email"),
+				matcher: (context) => context.path?.startsWith("/sign-in/email") ?? false,
 				handler: createAuthMiddleware(async (ctx) => {
 					const response = await handleEmailAuth(ctx, false);
 					return { response };
 				}),
 			},
 			{
-				matcher: (context) => context.path.startsWith("/sign-up/email"),
+				matcher: (context) => context.path?.startsWith("/sign-up/email") ?? false,
 				handler: createAuthMiddleware(async (ctx) => {
 					const response = await handleEmailAuth(ctx, true);
 					return { response };
