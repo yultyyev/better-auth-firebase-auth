@@ -9,18 +9,18 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "better-auth-firebase-auth": "workspace:*",
     "better-auth": "latest",
-    "firebase": "^11.0.0",
-    "firebase-admin": "^13.0.0",
-    "next": "^15.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "better-auth-firebase-auth": "workspace:*",
+    "firebase": "^11.10.0",
+    "firebase-admin": "^13.6.1",
+    "next": "^15.5.12",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "typescript": "^5.9.0"
+    "@types/node": "^22.19.11",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
   }
 }
