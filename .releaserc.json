@@ -7,7 +7,11 @@
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
     ["@semantic-release/changelog", { "changelogFile": "CHANGELOG.md" }],
-    ["@semantic-release/npm", { "tarballDir": "release" }],
+    ["@semantic-release/npm", { "tarballDir": "release", "npmPublish": false }],
+    [
+      "@semantic-release/exec",
+      { "publishCmd": "npm publish --provenance --access public" }
+    ],
     "@semantic-release/github"
   ]
 }
