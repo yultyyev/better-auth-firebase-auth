@@ -49,6 +49,21 @@ yarn add better-auth-firebase-auth firebase-admin firebase better-auth
 bun add better-auth-firebase-auth firebase-admin firebase better-auth
 ```
 
+## Better Auth Compatibility
+
+This package supports both older and newer Better Auth releases for hook middleware imports:
+
+- **Preferred in Better Auth v1.5+:** `createAuthMiddleware` from `better-auth/api`
+- **Legacy in older releases:** `createAuthMiddleware` from `better-auth/plugins`
+
+To keep integration stable across versions, this plugin resolves `createAuthMiddleware` from `better-auth/api` first and falls back to `better-auth/plugins` when needed.
+
+If you are writing your own Better Auth plugin code, prefer:
+
+```ts
+import { createAuthMiddleware } from "better-auth/api";
+```
+
 ## Import Paths
 
 To prevent bundling issues where client-side code tries to include server-side dependencies (like `firebase-admin`), the package provides separate export paths:

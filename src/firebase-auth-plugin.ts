@@ -1,9 +1,26 @@
 import type { BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthEndpoint } from "better-auth/api";
-import { createAuthMiddleware } from "better-auth/plugins";
+import * as betterAuthApi from "better-auth/api";
+import * as betterAuthPlugins from "better-auth/plugins";
 import type { FirebaseOptions } from "firebase/app";
 import { getAuth } from "firebase-admin/auth";
 import type { AuthResponse, FirebaseAuthPluginOptions } from "./types";
+
+type CreateAuthMiddleware = typeof import("better-auth/api").createAuthMiddleware;
+
+// Better Auth 1.5+ documents createAuthMiddleware under `better-auth/api`.
+// Older versions exposed it via `better-auth/plugins`.
+const createAuthMiddleware =
+	((betterAuthApi as { createAuthMiddleware?: CreateAuthMiddleware })
+		.createAuthMiddleware ??
+		(betterAuthPlugins as { createAuthMiddleware?: CreateAuthMiddleware })
+			.createAuthMiddleware) as CreateAuthMiddleware;
+
+if (typeof createAuthMiddleware !== "function") {
+	throw new Error(
+		"createAuthMiddleware is not available from better-auth/api or better-auth/plugins",
+	);
+}
 
 // Context type for Better Auth endpoints and hooks
 // Using any for adapter to maintain compatibility with Better Auth's DBAdapter type

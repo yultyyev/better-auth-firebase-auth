@@ -107,7 +107,8 @@ examples/
 - Export a function that returns a `BetterAuthPlugin`
 - Plugin must have unique `id: "firebase-auth"`
 - Use `createAuthEndpoint` from `better-auth/api` for endpoints
-- Use `createAuthMiddleware` from `better-auth/plugins` for hooks
+- Prefer `createAuthMiddleware` from `better-auth/api` for hooks
+- Keep fallback compatibility with `better-auth/plugins` for older Better Auth versions
 - Follow Better Auth plugin patterns from [plugin guide](https://www.better-auth.com/docs/guides/your-first-plugin)
 
 ### Client Plugin Structure
@@ -141,7 +142,7 @@ endpoints: {
 ### Hook Pattern
 
 ```ts
-import { createAuthMiddleware } from "better-auth/plugins";
+import { createAuthMiddleware } from "better-auth/api";
 
 hooks: {
 	before: [

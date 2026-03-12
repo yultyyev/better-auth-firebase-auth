@@ -192,7 +192,8 @@ When adding support for new Firebase authentication methods:
 
 ### Server Plugin (`firebase-auth-plugin.ts`)
 - Use `createAuthEndpoint` from `better-auth/api` for endpoints
-- Use `createAuthMiddleware` from `better-auth/plugins` for hooks
+- Prefer `createAuthMiddleware` from `better-auth/api` for hooks
+- Keep backward compatibility for older Better Auth versions by supporting fallback to `better-auth/plugins` when necessary
 - Throw `APIError` for error handling
 - Follow existing endpoint patterns
 - Ensure proper Firebase token verification
