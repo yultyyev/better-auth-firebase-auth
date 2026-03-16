@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "better-auth": "^1.4.18",
+    "better-auth": "^1.5.0",
     "better-auth-firebase-auth": "latest",
     "firebase": "^11.10.0",
     "firebase-admin": "^13.6.1",

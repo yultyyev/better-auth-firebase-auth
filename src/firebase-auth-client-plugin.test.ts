@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { firebaseAuthClientPlugin } from "./firebase-auth-client-plugin";
+import {
+	extractOobCodeFromUrl,
+	firebaseAuthClientPlugin,
+} from "./firebase-auth-client-plugin";
 
 describe("firebaseAuthClientPlugin", () => {
 	const mockFetch = vi.fn();
@@ -262,5 +265,36 @@ describe("firebaseAuthClientPlugin", () => {
 				}),
 			);
 		});
+	});
+});
+
+describe("extractOobCodeFromUrl", () => {
+	it("should extract oobCode from a valid URL", () => {
+		const code = extractOobCodeFromUrl(
+			"https://myapp.com/reset?oobCode=ABC123&mode=resetPassword",
+		);
+		expect(code).toBe("ABC123");
+	});
+
+	it("should return null when oobCode is not in URL", () => {
+		const code = extractOobCodeFromUrl(
+			"https://myapp.com/reset?mode=resetPassword",
+		);
+		expect(code).toBeNull();
+	});
+
+	it("should return null for invalid URL", () => {
+		const code = extractOobCodeFromUrl("not-a-valid-url");
+		expect(code).toBeNull();
+	});
+
+	it("should return null when no URL provided and window is unavailable", () => {
+		const code = extractOobCodeFromUrl();
+		expect(code).toBeNull();
+	});
+
+	it("should return null for empty string", () => {
+		const code = extractOobCodeFromUrl("");
+		expect(code).toBeNull();
 	});
 });
