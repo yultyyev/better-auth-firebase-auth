@@ -4,6 +4,7 @@ import {
 	createAuthEndpoint,
 	createAuthMiddleware,
 } from "better-auth/api";
+import { setSessionCookie } from "better-auth/cookies";
 import type { FirebaseOptions } from "firebase/app";
 import { getAuth } from "firebase-admin/auth";
 import type { AuthResponse, FirebaseAuthPluginOptions } from "./types";
@@ -83,6 +84,8 @@ export const createOrUpdateUser = async (
 			),
 		},
 	);
+
+	await setSessionCookie(ctx, { session, user });
 
 	return {
 		user: {

@@ -1,3 +1,4 @@
+import { setSessionCookie } from "better-auth/cookies";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createOrUpdateUser, firebaseAuthPlugin } from "./firebase-auth-plugin";
 
@@ -20,6 +21,10 @@ vi.mock("firebase/auth", () => ({
 	confirmPasswordReset: vi.fn(),
 	verifyPasswordResetCode: vi.fn(),
 	updateProfile: vi.fn(),
+}));
+
+vi.mock("better-auth/cookies", () => ({
+	setSessionCookie: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("firebaseAuthPlugin", () => {
@@ -89,6 +94,7 @@ describe("firebaseAuthPlugin", () => {
 		mockInternalAdapter.updateAccount.mockResolvedValue(mockAccount);
 		mockInternalAdapter.createSession.mockResolvedValue(mockSession);
 		mockAdminAuth.verifyIdToken.mockResolvedValue(mockDecodedToken);
+		vi.mocked(setSessionCookie).mockResolvedValue(undefined);
 	});
 
 	// ─── Plugin Initialization ───────────────────────────────────────────
@@ -203,6 +209,17 @@ describe("firebaseAuthPlugin", () => {
 				expect(sessionArgs[0]).toBe("user-123");
 				expect(sessionArgs[1]).toBeUndefined();
 				expect(sessionArgs[2].expiresAt).toBeInstanceOf(Date);
+			});
+
+			it("should call setSessionCookie with session and user after creating session", async () => {
+				const ctx = createMockCtx();
+				await createOrUpdateUser(ctx as any, mockDecodedToken, "id-token-abc");
+
+				expect(setSessionCookie).toHaveBeenCalledOnce();
+				expect(setSessionCookie).toHaveBeenCalledWith(ctx, {
+					session: mockSession,
+					user: mockUser,
+				});
 			});
 
 			it("should return correct response shape", async () => {
@@ -555,6 +572,7 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockAdminAuth.verifyIdToken.mockResolvedValue(mockDecodedToken);
+		vi.mocked(setSessionCookie).mockResolvedValue(undefined);
 	});
 
 	it("should sign in with Google and create user + session in DB", async () => {
@@ -584,6 +602,7 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		expect(data.user.name).toBe("Integration User");
 		expect(data.session).toBeDefined();
 		expect(data.session.token).toBeDefined();
+		expect(setSessionCookie).toHaveBeenCalledOnce();
 	});
 
 	it("should sign in with email (client-side token mode) and create user", async () => {
@@ -611,6 +630,7 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		const data = res.data as any;
 		expect(data.user.email).toBe("integration@example.com");
 		expect(data.session.token).toBeDefined();
+		expect(setSessionCookie).toHaveBeenCalledOnce();
 	});
 
 	it("should return same user on second sign-in (idempotent)", async () => {
