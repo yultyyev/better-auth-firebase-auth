@@ -75,15 +75,11 @@ export const createOrUpdateUser = async (
 		});
 	}
 
-	const session = await internalAdapter.createSession(
-		user.id,
-		undefined,
-		{
-			expiresAt: new Date(
-				Date.now() + 1000 * 60 * 60 * 24 * sessionExpiresInDays,
-			),
-		},
-	);
+	const session = await internalAdapter.createSession(user.id, undefined, {
+		expiresAt: new Date(
+			Date.now() + 1000 * 60 * 60 * 24 * sessionExpiresInDays,
+		),
+	});
 
 	await setSessionCookie(ctx, { session, user });
 
@@ -398,10 +394,7 @@ export const firebaseAuthPlugin = (
 			Parameters<typeof createAuthMiddleware>[0]
 		>[0];
 
-		const handleEmailAuth = async (
-			ctx: MiddlewareCtx,
-			isSignUp: boolean,
-		) => {
+		const handleEmailAuth = async (ctx: MiddlewareCtx, isSignUp: boolean) => {
 			const { email, password, name } = ctx.body as {
 				email: string;
 				password: string;
@@ -467,14 +460,16 @@ export const firebaseAuthPlugin = (
 
 		hooks.before = [
 			{
-				matcher: (context) => context.path?.startsWith("/sign-in/email") ?? false,
+				matcher: (context) =>
+					context.path?.startsWith("/sign-in/email") ?? false,
 				handler: createAuthMiddleware(async (ctx) => {
 					const response = await handleEmailAuth(ctx, false);
 					return { response };
 				}),
 			},
 			{
-				matcher: (context) => context.path?.startsWith("/sign-up/email") ?? false,
+				matcher: (context) =>
+					context.path?.startsWith("/sign-up/email") ?? false,
 				handler: createAuthMiddleware(async (ctx) => {
 					const response = await handleEmailAuth(ctx, true);
 					return { response };

@@ -204,8 +204,7 @@ describe("firebaseAuthPlugin", () => {
 					{ expiresAt: expect.any(Date) },
 				);
 
-				const sessionArgs =
-					mockInternalAdapter.createSession.mock.calls[0];
+				const sessionArgs = mockInternalAdapter.createSession.mock.calls[0];
 				expect(sessionArgs[0]).toBe("user-123");
 				expect(sessionArgs[1]).toBeUndefined();
 				expect(sessionArgs[2].expiresAt).toBeInstanceOf(Date);
@@ -414,8 +413,7 @@ describe("firebaseAuthPlugin", () => {
 					30,
 				);
 
-				const sessionArgs =
-					mockInternalAdapter.createSession.mock.calls[0];
+				const sessionArgs = mockInternalAdapter.createSession.mock.calls[0];
 				const expiresAt = sessionArgs[2].expiresAt as Date;
 				const expectedMs = 1000 * 60 * 60 * 24 * 30;
 				expect(expiresAt.getTime()).toBeGreaterThanOrEqual(
@@ -480,9 +478,7 @@ describe("firebaseAuthPlugin", () => {
 		it("should NOT match unrelated paths", () => {
 			const hooks = getHooks();
 			for (const hook of hooks) {
-				expect(hook.matcher({ path: "/sign-in/social" } as any)).toBe(
-					false,
-				);
+				expect(hook.matcher({ path: "/sign-in/social" } as any)).toBe(false);
 				expect(hook.matcher({ path: "/user/profile" } as any)).toBe(false);
 			}
 		});
@@ -490,9 +486,7 @@ describe("firebaseAuthPlugin", () => {
 		it("should handle undefined path without crashing", () => {
 			const hooks = getHooks();
 			for (const hook of hooks) {
-				expect(() =>
-					hook.matcher({ path: undefined } as any),
-				).not.toThrow();
+				expect(() => hook.matcher({ path: undefined } as any)).not.toThrow();
 				expect(hook.matcher({ path: undefined } as any)).toBe(false);
 			}
 		});
@@ -587,13 +581,10 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			{ disableTestUser: true },
 		);
 
-		const res = await client.$fetch(
-			"/firebase-auth/sign-in-with-google",
-			{
-				method: "POST",
-				body: { idToken: "fake-google-token" },
-			},
-		);
+		const res = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "fake-google-token" },
+		});
 
 		expect(res.data).toBeDefined();
 		const data = res.data as any;
@@ -618,13 +609,10 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			{ disableTestUser: true },
 		);
 
-		const res = await client.$fetch(
-			"/firebase-auth/sign-in-with-email",
-			{
-				method: "POST",
-				body: { idToken: "fake-email-token" },
-			},
-		);
+		const res = await client.$fetch("/firebase-auth/sign-in-with-email", {
+			method: "POST",
+			body: { idToken: "fake-email-token" },
+		});
 
 		expect(res.data).toBeDefined();
 		const data = res.data as any;
@@ -645,21 +633,15 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			{ disableTestUser: true },
 		);
 
-		const res1 = await client.$fetch(
-			"/firebase-auth/sign-in-with-google",
-			{
-				method: "POST",
-				body: { idToken: "token-1" },
-			},
-		);
+		const res1 = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "token-1" },
+		});
 
-		const res2 = await client.$fetch(
-			"/firebase-auth/sign-in-with-google",
-			{
-				method: "POST",
-				body: { idToken: "token-2" },
-			},
-		);
+		const res2 = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "token-2" },
+		});
 
 		const data1 = res1.data as any;
 		const data2 = res2.data as any;
@@ -689,13 +671,10 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 
 		const preExistingUserId = ctx.user.id;
 
-		const res = await client.$fetch(
-			"/firebase-auth/sign-in-with-google",
-			{
-				method: "POST",
-				body: { idToken: "firebase-token" },
-			},
-		);
+		const res = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "firebase-token" },
+		});
 
 		const data = res.data as any;
 		expect(data.user.id).toBe(preExistingUserId);
@@ -722,13 +701,10 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			{ disableTestUser: true },
 		);
 
-		const res = await client.$fetch(
-			"/firebase-auth/sign-in-with-google",
-			{
-				method: "POST",
-				body: { idToken: "anon-token" },
-			},
-		);
+		const res = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "anon-token" },
+		});
 
 		expect(res.data).toBeDefined();
 		const data = res.data as any;
@@ -737,9 +713,7 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 	});
 
 	it("should reject when verifyIdToken throws", async () => {
-		mockAdminAuth.verifyIdToken.mockRejectedValue(
-			new Error("Invalid token"),
-		);
+		mockAdminAuth.verifyIdToken.mockRejectedValue(new Error("Invalid token"));
 
 		const { client } = await getTestInstance(
 			{
@@ -752,13 +726,10 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			{ disableTestUser: true },
 		);
 
-		const res = await client.$fetch(
-			"/firebase-auth/sign-in-with-google",
-			{
-				method: "POST",
-				body: { idToken: "bad-token" },
-			},
-		);
+		const res = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "bad-token" },
+		});
 
 		expect(res.error).toBeDefined();
 	});
@@ -776,13 +747,10 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			{ disableTestUser: true },
 		);
 
-		const res = await client.$fetch(
-			"/firebase-auth/sign-in-with-google",
-			{
-				method: "POST",
-				body: { idToken: "any-token" },
-			},
-		);
+		const res = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "any-token" },
+		});
 
 		expect(res.error).toBeDefined();
 	});
