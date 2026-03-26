@@ -6,14 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
-    "better-auth": "^1.5.0",
-    "better-auth-firebase-auth": "latest",
-    "firebase": "^11.10.0",
-    "firebase-admin": "^13.6.1",
-    "next": "^15.5.12",
+    "better-auth": "^1.5.6",
+    "better-auth-firebase-auth": "file:../..",
+    "firebase": "^12.11.0",
+    "firebase-admin": "^13.7.0",
+    "next": "^16.2.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
@@ -21,6 +21,8 @@
     "@types/node": "^22.19.11",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.1",
     "typescript": "^5.9.3"
   }
 }

@@ -421,7 +421,7 @@ firebaseAuthPlugin({
 
 ## Example
 
-See the [minimal example](./examples/minimal) for a complete Next.js setup demonstrating the plugin usage.
+See the [minimal example](./examples/minimal) for a complete Next.js setup demonstrating the plugin usage. That README also explains **build-time defaults** in `lib/auth.ts` (placeholder secret and optional Firebase env) so `next build` can run without a full `.env`.
 
 ## Firestore Adapter
 
