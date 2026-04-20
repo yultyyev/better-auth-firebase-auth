@@ -24,5 +24,18 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.1",
     "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "@tootallnate/once": "^3.0.1",
+      "brace-expansion": "^1.1.13",
+      "defu": "^6.1.5",
+      "fast-xml-parser": "^5.5.7",
+      "kysely": "^0.28.14",
+      "next": "^16.2.3",
+      "node-forge": "^1.4.0",
+      "protobufjs": "^7.5.5",
+      "vite": "^7.3.2"
+    }
   }
 }
