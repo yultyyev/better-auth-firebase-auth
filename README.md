@@ -423,6 +423,32 @@ firebaseAuthPlugin({
 
 See the [minimal example](./examples/minimal) for a complete Next.js setup demonstrating the plugin usage. That README also explains **build-time defaults** in `lib/auth.ts` (placeholder secret and optional Firebase env) so `next build` can run without a full `.env`.
 
+## FAQ
+
+### What is `better-auth-firebase-auth`?
+
+`better-auth-firebase-auth` is a Better Auth plugin that connects Firebase Authentication to Better Auth sessions. It lets you use Firebase sign-in flows while still using Better Auth for session management and app-level auth features.
+
+### Does this plugin support Google Sign-In and email/password authentication?
+
+Yes. The plugin supports Google Sign-In and email/password authentication, including password reset endpoints and helpers. Additional Firebase providers (such as GitHub, Apple, phone auth, and MFA) are not yet implemented in this package.
+
+### How is this different from using Firebase Auth alone?
+
+Firebase Auth handles identity (who the user is), while this plugin bridges Firebase identities into Better Auth users, accounts, and sessions. This is useful when your app already uses Better Auth and you want Firebase providers and Firebase-managed email flows.
+
+### Should I use client-side or server-side token generation?
+
+Use client-side token generation (`useClientSideTokens: true`) for the simplest setup. Use server-side token generation (`useClientSideTokens: false`) when you want the server to handle Firebase client initialization and token exchange logic.
+
+### Can I use this package in a Next.js app?
+
+Yes. The package is designed for modern TypeScript apps and works well with Next.js. Use `better-auth-firebase-auth/server` in server code and `better-auth-firebase-auth/client` in browser/client code to avoid bundling issues.
+
+### Does this plugin override Better Auth email/password by default?
+
+No. `overrideEmailPasswordFlow` is `false` by default. You can opt in to override Better Auth email/password routes when you want Firebase to be the source of truth for those credentials.
+
 ## Firestore Adapter
 
 For storing Better Auth data in Firestore, see [@yultyyev/better-auth-firestore](https://www.npmjs.com/package/@yultyyev/better-auth-firestore):
