@@ -10,21 +10,11 @@ overrides:
   lodash: ^4.18.0
   lodash-es: ^4.18.0
   protobufjs: ^7.5.5
-  vite: ^7.3.2
+  vite: 7.3.2
 
 importers:
 
   .:
-    dependencies:
-      better-auth:
-        specifier: '>=1.5.0'
-        version: 1.6.5(@opentelemetry/api@1.9.1)(better-sqlite3@12.9.0)(mongodb@7.1.0)(vitest@4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(vite@7.3.1(@types/node@25.6.0)))
-      firebase:
-        specifier: '>=9'
-        version: 12.12.0
-      firebase-admin:
-        specifier: '>=13'
-        version: 13.8.0
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.4.12
@@ -47,9 +37,18 @@ importers:
       '@semantic-release/release-notes-generator':
         specifier: ^14.1.0
         version: 14.1.0(semantic-release@25.0.3(typescript@5.9.3))
+      better-auth:
+        specifier: ^1.6.5
+        version: 1.6.5(@opentelemetry/api@1.9.1)(better-sqlite3@12.9.0)(mongodb@7.1.0)(vitest@4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(vite@7.3.2(@types/node@25.6.0)))
       better-sqlite3:
         specifier: ^12.9.0
         version: 12.9.0
+      firebase:
+        specifier: ^12.12.0
+        version: 12.12.0
+      firebase-admin:
+        specifier: ^13.8.0
+        version: 13.8.0
       rimraf:
         specifier: ^6.1.3
         version: 6.1.3
@@ -59,9 +58,12 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      vite:
+        specifier: 7.3.2
+        version: 7.3.2(@types/node@25.6.0)
       vitest:
         specifier: ^4.1.4
-        version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(vite@7.3.1(@types/node@25.6.0))
+        version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(vite@7.3.2(@types/node@25.6.0))
 
 packages:
 
@@ -981,7 +983,7 @@ packages:
     resolution: {integrity: sha512-R9HTZBhW6yCSGbGQnDnH3QHfJxokKN4KB+Yvk9Q1le7eQNYwiCyKxmLmurSpFy6BzJanSLuEUDrD+j97Q+ZLPg==}
     peerDependencies:
       msw: ^2.4.9
-      vite: ^7.3.2
+      vite: 7.3.2
     peerDependenciesMeta:
       msw:
         optional: true
@@ -2736,8 +2738,8 @@ packages:
   validate-npm-package-license@3.0.4:
     resolution: {integrity: sha512-DpKm2Ui/xN7/HQKCtpZxoRWBhZ9Z0kqtygG8XCgNQ8ZlDnxuQmWhj566j8fN4Cu3/JmbhsDo7fcAJq4s9h27Ew==}
 
-  vite@7.3.1:
-    resolution: {integrity: sha512-w+N7Hifpc3gRjZ63vYBXA56dvvRlNWRczTdmCBBa+CotUzAPf5b7YMdMR/8CQoeYE5LX3W4wj6RYTgonm1b9DA==}
+  vite@7.3.2:
+    resolution: {integrity: sha512-Bby3NOsna2jsjfLVOHKes8sGwgl4TT0E6vvpYgnAYDIF/tie7MRaFthmKuHx1NSXjiTueXH3do80FMQgvEktRg==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
@@ -2792,7 +2794,7 @@ packages:
       '@vitest/ui': 4.1.4
       happy-dom: '*'
       jsdom: '*'
-      vite: ^7.3.2
+      vite: 7.3.2
     peerDependenciesMeta:
       '@edge-runtime/vm':
         optional: true
@@ -3865,13 +3867,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.4(vite@7.3.1(@types/node@25.6.0))':
+  '@vitest/mocker@4.1.4(vite@7.3.2(@types/node@25.6.0))':
     dependencies:
       '@vitest/spy': 4.1.4
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 7.3.1(@types/node@25.6.0)
+      vite: 7.3.2(@types/node@25.6.0)
 
   '@vitest/pretty-format@4.1.4':
     dependencies:
@@ -3966,7 +3968,7 @@ snapshots:
 
   before-after-hook@4.0.0: {}
 
-  better-auth@1.6.5(@opentelemetry/api@1.9.1)(better-sqlite3@12.9.0)(mongodb@7.1.0)(vitest@4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(vite@7.3.1(@types/node@25.6.0))):
+  better-auth@1.6.5(@opentelemetry/api@1.9.1)(better-sqlite3@12.9.0)(mongodb@7.1.0)(vitest@4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(vite@7.3.2(@types/node@25.6.0))):
     dependencies:
       '@better-auth/core': 1.6.5(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@opentelemetry/api@1.9.1)(better-call@1.3.5(zod@4.3.6))(jose@6.2.2)(kysely@0.28.16)(nanostores@1.3.0)
       '@better-auth/drizzle-adapter': 1.6.5(@better-auth/core@1.6.5(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@opentelemetry/api@1.9.1)(better-call@1.3.5(zod@4.3.6))(jose@6.2.2)(kysely@0.28.16)(nanostores@1.3.0))(@better-auth/utils@0.4.0)
@@ -3988,7 +3990,7 @@ snapshots:
     optionalDependencies:
       better-sqlite3: 12.9.0
       mongodb: 7.1.0
-      vitest: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(vite@7.3.1(@types/node@25.6.0))
+      vitest: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(vite@7.3.2(@types/node@25.6.0))
     transitivePeerDependencies:
       - '@cloudflare/workers-types'
       - '@opentelemetry/api'
@@ -5661,7 +5663,7 @@ snapshots:
       spdx-correct: 3.2.0
       spdx-expression-parse: 3.0.1
 
-  vite@7.3.1(@types/node@25.6.0):
+  vite@7.3.2(@types/node@25.6.0):
     dependencies:
       esbuild: 0.27.7
       fdir: 6.5.0(picomatch@4.0.4)
@@ -5673,10 +5675,10 @@ snapshots:
       '@types/node': 25.6.0
       fsevents: 2.3.3
 
-  vitest@4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(vite@7.3.1(@types/node@25.6.0)):
+  vitest@4.1.4(@opentelemetry/api@1.9.1)(@types/node@25.6.0)(vite@7.3.2(@types/node@25.6.0)):
     dependencies:
       '@vitest/expect': 4.1.4
-      '@vitest/mocker': 4.1.4(vite@7.3.1(@types/node@25.6.0))
+      '@vitest/mocker': 4.1.4(vite@7.3.2(@types/node@25.6.0))
       '@vitest/pretty-format': 4.1.4
       '@vitest/runner': 4.1.4
       '@vitest/snapshot': 4.1.4
@@ -5693,7 +5695,7 @@ snapshots:
       tinyexec: 1.1.1
       tinyglobby: 0.2.16
       tinyrainbow: 3.1.0
-      vite: 7.3.1(@types/node@25.6.0)
+      vite: 7.3.2(@types/node@25.6.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
