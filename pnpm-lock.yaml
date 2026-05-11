@@ -10,6 +10,7 @@ overrides:
   lodash: ^4.18.0
   lodash-es: ^4.18.0
   protobufjs: ^7.5.5
+  uuid@<11.1.0: '>=11.1.0'
   vite: 7.3.2
 
 importers:
@@ -2727,14 +2728,6 @@ packages:
     resolution: {integrity: sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A==}
     hasBin: true
 
-  uuid@8.3.2:
-    resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
-    hasBin: true
-
-  uuid@9.0.1:
-    resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
-    hasBin: true
-
   validate-npm-package-license@3.0.4:
     resolution: {integrity: sha512-DpKm2Ui/xN7/HQKCtpZxoRWBhZ9Z0kqtygG8XCgNQ8ZlDnxuQmWhj566j8fN4Cu3/JmbhsDo7fcAJq4s9h27Ew==}
 
@@ -3479,7 +3472,7 @@ snapshots:
       p-limit: 3.1.0
       retry-request: 7.0.2
       teeny-request: 9.0.0
-      uuid: 8.3.2
+      uuid: 11.1.0
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -4500,7 +4493,7 @@ snapshots:
       https-proxy-agent: 7.0.6
       is-stream: 2.0.1
       node-fetch: 2.7.0
-      uuid: 9.0.1
+      uuid: 11.1.0
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -4621,7 +4614,7 @@ snapshots:
       proto3-json-serializer: 2.0.2
       protobufjs: 7.5.5
       retry-request: 7.0.2
-      uuid: 9.0.1
+      uuid: 11.1.0
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -5544,7 +5537,7 @@ snapshots:
       https-proxy-agent: 5.0.1
       node-fetch: 2.7.0
       stream-events: 1.0.5
-      uuid: 9.0.1
+      uuid: 11.1.0
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -5651,12 +5644,6 @@ snapshots:
   util-deprecate@1.0.2: {}
 
   uuid@11.1.0: {}
-
-  uuid@8.3.2:
-    optional: true
-
-  uuid@9.0.1:
-    optional: true
 
   validate-npm-package-license@3.0.4:
     dependencies:
