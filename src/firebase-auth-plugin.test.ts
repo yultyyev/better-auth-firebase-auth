@@ -116,6 +116,7 @@ describe("firebaseAuthPlugin", () => {
 			expect(plugin.endpoints).toBeDefined();
 			expect(plugin.endpoints?.signInWithGoogle).toBeDefined();
 			expect(plugin.endpoints?.signInWithEmail).toBeDefined();
+			expect(plugin.endpoints?.signInWithPhone).toBeDefined();
 			expect(plugin.endpoints?.sendPasswordReset).toBeDefined();
 			expect(plugin.endpoints?.confirmPasswordReset).toBeDefined();
 			expect(plugin.endpoints?.verifyPasswordResetCode).toBeDefined();
@@ -542,6 +543,21 @@ describe("firebaseAuthPlugin", () => {
 			});
 			expect(plugin.endpoints?.sendPasswordReset).toBeDefined();
 		});
+
+		it("should register signInWithPhone endpoint", () => {
+			const plugin = firebaseAuthPlugin({
+				firebaseAdminAuth: mockAdminAuth as any,
+			});
+			expect(plugin.endpoints?.signInWithPhone).toBeDefined();
+		});
+
+		it("should not register signInWithPhone when serverSideOnly is true", () => {
+			const plugin = firebaseAuthPlugin({
+				firebaseAdminAuth: mockAdminAuth as any,
+				serverSideOnly: true,
+			});
+			expect(plugin.endpoints?.signInWithPhone).toBeUndefined();
+		});
 	});
 });
 
@@ -753,5 +769,192 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		});
 
 		expect(res.error).toBeDefined();
+	});
+
+	// ─── Phone Auth integration tests ────────────────────────────────────
+
+	it("should sign in with phone and create user + session", async () => {
+		mockAdminAuth.verifyIdToken.mockResolvedValue({
+			uid: "phone-uid-123",
+			phone_number: "+15555550100",
+			email: undefined,
+			name: undefined,
+			picture: undefined,
+			email_verified: false,
+			exp: Math.floor(Date.now() / 1000) + 3600,
+		});
+
+		const { client } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({
+						firebaseAdminAuth: mockAdminAuth as any,
+					}),
+				],
+			},
+			{ disableTestUser: true },
+		);
+
+		const res = await client.$fetch("/firebase-auth/sign-in-with-phone", {
+			method: "POST",
+			body: { idToken: "fake-phone-token" },
+		});
+
+		expect(res.data).toBeDefined();
+		const data = res.data as any;
+		expect(data.user).toBeDefined();
+		expect(data.session).toBeDefined();
+		expect(data.session.token).toBeDefined();
+	});
+
+	it("should use default fallback email for phone-only users", async () => {
+		mockAdminAuth.verifyIdToken.mockResolvedValue({
+			uid: "phone-uid-fallback",
+			phone_number: "+15555550101",
+			email: undefined,
+			name: undefined,
+			picture: undefined,
+			email_verified: false,
+			exp: Math.floor(Date.now() / 1000) + 3600,
+		});
+
+		const { client } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({
+						firebaseAdminAuth: mockAdminAuth as any,
+					}),
+				],
+			},
+			{ disableTestUser: true },
+		);
+
+		const res = await client.$fetch("/firebase-auth/sign-in-with-phone", {
+			method: "POST",
+			body: { idToken: "phone-fallback-token" },
+		});
+
+		expect(res.data).toBeDefined();
+		const data = res.data as any;
+		expect(data.user.email).toBe("phone-uid-fallback@firebase.local");
+	});
+
+	it("should use custom getPhoneUserFallbackEmail when provided", async () => {
+		mockAdminAuth.verifyIdToken.mockResolvedValue({
+			uid: "phone-uid-custom",
+			phone_number: "+15555550102",
+			email: undefined,
+			name: undefined,
+			picture: undefined,
+			email_verified: false,
+			exp: Math.floor(Date.now() / 1000) + 3600,
+		});
+
+		const { client } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({
+						firebaseAdminAuth: mockAdminAuth as any,
+						getPhoneUserFallbackEmail: ({ uid }) =>
+							`phone-${uid}@myapp.example`,
+					}),
+				],
+			},
+			{ disableTestUser: true },
+		);
+
+		const res = await client.$fetch("/firebase-auth/sign-in-with-phone", {
+			method: "POST",
+			body: { idToken: "phone-custom-email-token" },
+		});
+
+		expect(res.data).toBeDefined();
+		const data = res.data as any;
+		expect(data.user.email).toBe("phone-phone-uid-custom@myapp.example");
+	});
+
+	it("should reject phone sign-in when token has no phone_number", async () => {
+		mockAdminAuth.verifyIdToken.mockResolvedValue({
+			uid: "uid-no-phone",
+			email: "someone@example.com",
+			phone_number: undefined,
+			email_verified: true,
+			exp: Math.floor(Date.now() / 1000) + 3600,
+		});
+
+		const { client } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({
+						firebaseAdminAuth: mockAdminAuth as any,
+					}),
+				],
+			},
+			{ disableTestUser: true },
+		);
+
+		const res = await client.$fetch("/firebase-auth/sign-in-with-phone", {
+			method: "POST",
+			body: { idToken: "no-phone-token" },
+		});
+
+		expect(res.error).toBeDefined();
+	});
+
+	it("should reject phone sign-in when idToken is missing", async () => {
+		const { client } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({
+						firebaseAdminAuth: mockAdminAuth as any,
+					}),
+				],
+			},
+			{ disableTestUser: true },
+		);
+
+		const res = await client.$fetch("/firebase-auth/sign-in-with-phone", {
+			method: "POST",
+			body: {},
+		});
+
+		expect(res.error).toBeDefined();
+	});
+
+	it("should sign in phone user idempotently (same user on second call)", async () => {
+		mockAdminAuth.verifyIdToken.mockResolvedValue({
+			uid: "phone-uid-idempotent",
+			phone_number: "+15555550103",
+			email: undefined,
+			name: undefined,
+			picture: undefined,
+			email_verified: false,
+			exp: Math.floor(Date.now() / 1000) + 3600,
+		});
+
+		const { client } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({
+						firebaseAdminAuth: mockAdminAuth as any,
+					}),
+				],
+			},
+			{ disableTestUser: true },
+		);
+
+		const res1 = await client.$fetch("/firebase-auth/sign-in-with-phone", {
+			method: "POST",
+			body: { idToken: "phone-token-1" },
+		});
+		const res2 = await client.$fetch("/firebase-auth/sign-in-with-phone", {
+			method: "POST",
+			body: { idToken: "phone-token-2" },
+		});
+
+		const data1 = res1.data as any;
+		const data2 = res2.data as any;
+		expect(data1.user.id).toBe(data2.user.id);
+		expect(data1.user.email).toBe(data2.user.email);
 	});
 });

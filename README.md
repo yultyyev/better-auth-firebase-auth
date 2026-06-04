@@ -4,148 +4,79 @@
 [![CI](https://github.com/yultyyev/better-auth-firebase-auth/actions/workflows/release.yml/badge.svg)](https://github.com/yultyyev/better-auth-firebase-auth/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-**Firebase Authentication plugin for Better Auth.** Integrate Firebase Auth with Better Auth, allowing users to authenticate using Firebase Auth and create Better Auth sessions.
+Use Firebase Authentication — Phone, Google, Email/Password — while Better Auth owns sessions, organizations, plugins, and roles.
 
 - **Install:** `pnpm add better-auth-firebase-auth firebase-admin firebase better-auth`
 
-## Why Firebase Auth?
+## Why Firebase Auth with Better Auth?
 
-Firebase Authentication provides several advantages when integrated with Better Auth:
+Firebase Authentication is a battle-tested identity platform. Better Auth is a comprehensive session and user management framework for TypeScript apps. This plugin bridges them:
 
-- **🔥 Built-in Email Service** - Password reset emails, email verification, and account management emails work out of the box. No need to set up SendGrid, Resend, or other email providers.
-- **🌍 Global Infrastructure** - Firebase Auth is backed by Google's infrastructure, ensuring high availability and low latency worldwide.
-- **🔐 Battle-Tested Security** - Industry-standard OAuth flows and security best practices built-in.
-- **📱 Multi-Platform SDKs** - Consistent authentication across web, iOS, and Android applications.
-- **🎨 Customizable Email Templates** - Easily customize email templates directly in the Firebase Console.
-- **🚀 Quick Setup** - Get authentication working in minutes without managing your own auth infrastructure.
+- Firebase verifies identity and handles SMS OTP, OAuth flows, and password emails.
+- Better Auth creates and manages sessions, organizations, roles, API keys, and plugins.
+- No Twilio account needed for phone auth — Firebase handles SMS delivery globally.
+- No email provider setup needed — Firebase handles password reset and verification emails.
 
-**Use Case:** Perfect for applications that want robust authentication with email functionality without the complexity of setting up and maintaining email infrastructure.
+```
+Firebase Auth                           Better Auth
+─────────────────                       ──────────────────────
+Phone OTP (SMS)  ──┐                    Sessions
+Google OAuth     ──┼── Firebase ID  ──► Users
+Email/Password   ──┘    Token           Organizations
+                                        Plugins
+                                        Roles
+```
+
+## Supported Authentication Methods
+
+### Currently Supported
+
+- **Phone Authentication** — Firebase sends/verifies SMS OTP, plugin creates the Better Auth session (`signInWithPhone`)
+- **Google Sign-In** — OAuth via Firebase (`signInWithGoogle`)
+- **Email/Password** — sign in, sign up, password reset (`signInWithEmail`)
+
+### Not Yet Supported
+
+Social providers (Facebook, GitHub, Twitter/X, Microsoft, Apple, LinkedIn), anonymous auth, SAML/OIDC, MFA, and custom tokens. Contributions welcome — see [Contributing](#contributing).
 
 ---
 
 ## Installation
 
-# npm
-
 ```bash
+# npm
 npm install better-auth-firebase-auth firebase-admin firebase better-auth
-```
 
 # pnpm
-
-```bash
 pnpm add better-auth-firebase-auth firebase-admin firebase better-auth
-```
 
 # yarn
-
-```bash
 yarn add better-auth-firebase-auth firebase-admin firebase better-auth
-```
 
 # bun
-
-```bash
 bun add better-auth-firebase-auth firebase-admin firebase better-auth
-```
-
-## Better Auth Compatibility
-
-This package supports both older and newer Better Auth releases for hook middleware imports:
-
-- **Preferred in Better Auth v1.5+:** `createAuthMiddleware` from `better-auth/api`
-- **Legacy in older releases:** `createAuthMiddleware` from `better-auth/plugins`
-
-To keep integration stable across versions, this plugin resolves `createAuthMiddleware` from `better-auth/api` first and falls back to `better-auth/plugins` when needed.
-
-If you are writing your own Better Auth plugin code, prefer:
-
-```ts
-import { createAuthMiddleware } from "better-auth/api";
 ```
 
 ## Import Paths
 
-To prevent bundling issues where client-side code tries to include server-side dependencies (like `firebase-admin`), the package provides separate export paths:
-
-### Client-side (React components, browser code)
+The package exposes separate entry points so bundlers never mix server-only `firebase-admin` into client bundles:
 
 ```ts
-import { firebaseAuthClientPlugin } from "better-auth-firebase-auth/client";
-```
-
-Use this import in client components, browser-only code, or anywhere the code will run in the browser. This ensures bundlers don't try to include `firebase-admin`.
-
-### Server-side (API routes, server components)
-
-```ts
+// Server: API routes, server components, server actions
 import { firebaseAuthPlugin } from "better-auth-firebase-auth/server";
-```
 
-Use this import in API routes, server-side code, or server components where Node.js is available.
+// Client: React components, browser code
+import { firebaseAuthClientPlugin } from "better-auth-firebase-auth/client";
 
-### Main export (backward compatibility)
-
-```ts
+// Main entry (backward compat — prefer specific paths above)
 import { firebaseAuthPlugin, firebaseAuthClientPlugin } from "better-auth-firebase-auth";
 ```
 
-The main entry point still exports both plugins for backward compatibility, but using the specific paths above is recommended to avoid bundling issues.
+---
 
-## Features
+## Setup
 
-- ✅ Client-side and server-side token generation modes
-- ✅ Optional override of Better Auth's built-in email/password flow
-- ✅ Password reset functionality with email verification
-- ✅ Server-side only mode (hidden endpoints, all auth through hooks)
-- ✅ Sign in with Google
-- ✅ Sign in with email/password
-- ✅ Full TypeScript support
-
-## Supported Authentication Methods
-
-This plugin currently supports the following Firebase Authentication methods:
-
-### ✅ Currently Supported
-
-- **Google Sign-In** - OAuth provider (`signInWithGoogle`)
-- **Email/Password** - Email-based authentication (`signInWithEmail`)
-  - Sign up with email/password
-  - Sign in with email/password
-  - Password reset flow with email verification
-  - Custom reset URLs
-
-### ❌ Not Yet Supported
-
-The following Firebase Auth providers are available in Firebase but not yet implemented in this plugin:
-
-**Social Providers:**
-- Facebook
-- GitHub
-- Twitter/X
-- Microsoft
-- Apple
-- Yahoo
-- LinkedIn
-
-**Phone Authentication:**
-- Phone number sign-in with SMS verification
-- Multi-factor authentication (MFA)
-
-**Other Methods:**
-- Anonymous authentication
-- Custom authentication tokens
-- SAML/OpenID Connect providers
-- Game Center (iOS)
-- Play Games (Android)
-
-**Note:** You can still use these providers directly with the Firebase Auth SDK in your application, but they won't automatically create Better Auth sessions. Contributions to add support for additional providers are welcome! See the [Contributing](#contributing) section.
-
-## Usage
-
-### Client-side token generation (default)
-
-**Server-side setup (API routes, `lib/auth.ts`):**
+**Server (`lib/auth.ts`):**
 
 ```ts
 import { betterAuth } from "better-auth";
@@ -155,307 +86,282 @@ import { getAuth } from "firebase-admin/auth";
 export const auth = betterAuth({
   plugins: [
     firebaseAuthPlugin({
-      useClientSideTokens: true, // Client generates Firebase tokens
-      firebaseAdminAuth: getAuth(), // Firebase Admin SDK instance
-    }),
-  ],
-});
-```
-
-**Client-side setup (React components, `lib/auth-client.ts`):**
-
-```ts
-import { createAuthClient } from "better-auth/react";
-import { firebaseAuthClientPlugin } from "better-auth-firebase-auth/client";
-
-export const authClient = createAuthClient({
-  plugins: [
-    firebaseAuthClientPlugin({
-      // Optional: Add Firebase client config for additional features
-    }),
-  ],
-});
-```
-
-### Server-side token generation
-
-**Server-side setup (API routes, `lib/auth.ts`):**
-
-```ts
-import { betterAuth } from "better-auth";
-import { firebaseAuthPlugin } from "better-auth-firebase-auth/server";
-import { getAuth } from "firebase-admin/auth";
-import type { FirebaseOptions } from "firebase/app";
-
-const firebaseConfig: FirebaseOptions = {
-  apiKey: process.env.FIREBASE_API_KEY!,
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN!,
-  projectId: process.env.FIREBASE_PROJECT_ID!,
-};
-
-export const auth = betterAuth({
-  plugins: [
-    firebaseAuthPlugin({
-      useClientSideTokens: false, // Server handles Firebase Auth
+      useClientSideTokens: true,
       firebaseAdminAuth: getAuth(),
-      firebaseConfig, // Required for server-side mode
     }),
   ],
 });
 ```
 
-**Client-side setup (React components, `lib/auth-client.ts`):**
+**Client (`lib/auth-client.ts`):**
 
 ```ts
 import { createAuthClient } from "better-auth/react";
 import { firebaseAuthClientPlugin } from "better-auth-firebase-auth/client";
 
 export const authClient = createAuthClient({
-  plugins: [
-    firebaseAuthClientPlugin({
-      // No Firebase config needed - server handles everything
-    }),
-  ],
+  plugins: [firebaseAuthClientPlugin()],
 });
 ```
 
-## Password Reset
+---
 
-### Firebase Console Setup (Required)
+## Firebase Phone Authentication with Better Auth
 
-Before using password reset, configure your Firebase project:
+Firebase Phone Auth works without Twilio or any third-party SMS provider. Firebase handles delivery globally; this plugin bridges the verified Firebase ID token into a Better Auth session.
 
-#### 1. Enable Email/Password Authentication
-- Go to [Firebase Console](https://console.firebase.google.com/)
-- Select your project → **Authentication** → **Sign-in method**
-- Enable **Email/Password** provider
-- Click **Save**
+### Flow
 
-#### 2. Add Authorized Domains (CRITICAL for Custom URLs)
-- Go to **Authentication** → **Settings** → **Authorized domains**
-- Add your application domains:
-  - Development: `localhost` (already included by default)
-  - Production: `yourdomain.com`, `www.yourdomain.com`
-- ⚠️ **Important**: Any domain used in `passwordResetUrl` MUST be in this list, or Firebase will reject the request
-
-#### 3. Customize Email Template (Optional)
-- Go to **Authentication** → **Templates** → **Password reset**
-- Customize the email subject, body, and sender name
-- The email will contain a link to your `passwordResetUrl` with the reset code
-
-### Plugin Configuration
-
-```ts
-import { betterAuth } from "better-auth";
-import { firebaseAuthPlugin } from "better-auth-firebase-auth/server";
-
-export const auth = betterAuth({
-  plugins: [
-    firebaseAuthPlugin({
-      firebaseConfig: {
-        apiKey: process.env.FIREBASE_API_KEY!,
-        authDomain: process.env.FIREBASE_AUTH_DOMAIN!,
-        projectId: process.env.FIREBASE_PROJECT_ID!,
-      },
-      passwordResetUrl: "https://myapp.com/reset-password", // Your custom reset page
-      // OR omit passwordResetUrl to use Firebase's default URL
-    }),
-  ],
-});
+```
+1. User enters phone number
+2. Firebase sends SMS OTP (reCAPTCHA verified)
+3. User enters OTP → Firebase issues ID token
+4. Client sends ID token to this plugin
+5. Plugin verifies token with Firebase Admin SDK
+6. Plugin creates / links Better Auth user and session
 ```
 
-**Note**: If `passwordResetUrl` is not provided, Firebase uses its default URL (`https://YOUR_PROJECT.firebaseapp.com/__/auth/action`), which works without any additional setup but doesn't match your app's branding.
-
-### Password Reset Flow
-
-#### Step 1: Request Password Reset
-
-```typescript
-await authClient.sendPasswordReset({ 
-  email: "user@example.com" 
-});
-// User receives email with link like: https://myapp.com/reset-password?oobCode=ABC123&mode=resetPassword
-```
-
-#### Step 2: Extract Code from URL
-
-On your reset password page (`/reset-password`):
-
-```typescript
-import { extractOobCodeFromUrl } from "better-auth-firebase-auth/client";
-
-// Extracts oobCode from current URL query parameters
-const oobCode = extractOobCodeFromUrl(); 
-
-if (!oobCode) {
-  // Show error: Invalid or missing reset code
-  return;
-}
-```
-
-#### Step 3: Verify Reset Code (Optional but Recommended)
-
-```typescript
-try {
-  const { valid, email } = await authClient.verifyPasswordResetCode({ 
-    oobCode 
-  });
-  
-  // Show reset form with email pre-filled
-  console.log("Reset password for:", email);
-} catch (error) {
-  // Show error: Invalid or expired reset code
-}
-```
-
-#### Step 4: Confirm New Password
-
-```typescript
-try {
-  await authClient.confirmPasswordReset({
-    oobCode,
-    newPassword: "newSecurePassword123",
-  });
-  
-  // Success! Redirect to login page
-} catch (error) {
-  // Show error: Failed to reset password
-}
-```
-
-### Complete Example
+### Client-side (React / Next.js)
 
 ```tsx
-// app/reset-password/page.tsx
-"use client";
-
-import { useState, useEffect } from "react";
+import {
+  getAuth,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+} from "firebase/auth";
 import { authClient } from "@/lib/auth-client";
-import { extractOobCodeFromUrl } from "better-auth-firebase-auth/client";
 
-export default function ResetPasswordPage() {
-  const [oobCode, setOobCode] = useState<string | null>(null);
-  const [email, setEmail] = useState<string>("");
-  const [newPassword, setNewPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+const firebaseAuth = getAuth();
 
-  useEffect(() => {
-    const code = extractOobCodeFromUrl();
-    if (!code) {
-      setError("Invalid or missing reset code");
-      return;
-    }
-    setOobCode(code);
+// Step 1: Set up reCAPTCHA and send OTP
+const verifier = new RecaptchaVerifier(firebaseAuth, "recaptcha-container", {
+  size: "invisible",
+});
+const confirmation = await signInWithPhoneNumber(
+  firebaseAuth,
+  "+15555550100",
+  verifier,
+);
 
-    // Verify the code
-    authClient.verifyPasswordResetCode({ oobCode: code })
-      .then(({ email }) => setEmail(email))
-      .catch(() => setError("Invalid or expired reset code"));
-  }, []);
+// Step 2: Confirm OTP and exchange for Better Auth session
+const result = await confirmation.confirm("123456"); // OTP from SMS
+const idToken = await result.user.getIdToken();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!oobCode) return;
-
-    try {
-      await authClient.confirmPasswordReset({
-        oobCode,
-        newPassword,
-      });
-      setSuccess(true);
-    } catch (err) {
-      setError("Failed to reset password");
-    }
-  };
-
-  if (error) return <div>Error: {error}</div>;
-  if (success) return <div>Password reset successful! <a href="/login">Login</a></div>;
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <h1>Reset Password</h1>
-      <p>Email: {email}</p>
-      <input
-        type="password"
-        placeholder="New password"
-        value={newPassword}
-        onChange={(e) => setNewPassword(e.target.value)}
-        required
-      />
-      <button type="submit">Reset Password</button>
-    </form>
-  );
-}
+await authClient.signInWithPhone({ idToken });
+// Better Auth session cookie is now set
 ```
 
-### Troubleshooting
+### Server-side plugin config
 
-**Error: "Invalid action code"**
-- The reset link has expired (default: 1 hour)
-- The code has already been used
-- Solution: Request a new password reset email
-
-**Error: "Unauthorized domain"**
-- Your `passwordResetUrl` domain is not in Firebase's authorized domains list
-- Solution: Add the domain in Firebase Console → Authentication → Settings → Authorized domains
-
-**Email not received**
-- Check spam/junk folder
-- Verify the email address is registered in Firebase Auth
-- Check Firebase Console → Authentication → Templates for email settings
-
-## Options
+No extra options are required for phone auth beyond the basic setup. Optionally customize how synthetic emails are generated for phone-only users (users with no email on their Firebase account):
 
 ```ts
 firebaseAuthPlugin({
-  useClientSideTokens?: boolean; // Default: true
-  overrideEmailPasswordFlow?: boolean; // Default: false
-  serverSideOnly?: boolean; // Default: false
-  firebaseAdminAuth?: admin.auth.Auth; // Optional
-  firebaseConfig?: FirebaseOptions; // Required for server-side mode
-  passwordResetUrl?: string; // Custom URL for password reset page
-  sessionExpiresInDays?: number; // Default: 7
+  firebaseAdminAuth: getAuth(),
+  getPhoneUserFallbackEmail: ({ uid, phoneNumber }) =>
+    `${uid}@phone.myapp.com`, // defaults to `${uid}@firebase.local`
+})
+```
+
+### Firebase Console setup for Phone Auth
+
+1. Open [Firebase Console](https://console.firebase.google.com/) → your project → **Authentication** → **Sign-in method**
+2. Enable **Phone** provider and click **Save**
+3. For production, add your domain to **Authorized domains** under **Authentication** → **Settings**
+4. For development, add test phone numbers under **Phone** → **Phone numbers for testing** (avoids real SMS)
+
+---
+
+## Google Sign-In
+
+```tsx
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+
+const provider = new GoogleAuthProvider();
+const result = await signInWithPopup(getAuth(), provider);
+const idToken = await result.user.getIdToken();
+
+await authClient.signInWithGoogle({ idToken });
+```
+
+---
+
+## Email/Password Authentication
+
+### Client-side token mode (default)
+
+Sign in with Firebase client SDK, then exchange the token:
+
+```tsx
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+
+const credential = await signInWithEmailAndPassword(
+  getAuth(),
+  "user@example.com",
+  "password",
+);
+const idToken = await credential.user.getIdToken();
+
+await authClient.signInWithEmail({ idToken });
+```
+
+### Server-side token mode
+
+Pass credentials directly — the server handles Firebase client SDK:
+
+```ts
+firebaseAuthPlugin({
+  useClientSideTokens: false,
+  firebaseAdminAuth: getAuth(),
+  firebaseConfig: {
+    apiKey: process.env.FIREBASE_API_KEY!,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN!,
+    projectId: process.env.FIREBASE_PROJECT_ID!,
+  },
+})
+```
+
+```tsx
+await authClient.signInWithEmail({
+  email: "user@example.com",
+  password: "password",
 });
 ```
 
-## Example
+### Override Better Auth email/password flow
 
-See the [minimal example](./examples/minimal) for a complete Next.js setup demonstrating the plugin usage. That README also explains **build-time defaults** in `lib/auth.ts` (placeholder secret and optional Firebase env) so `next build` can run without a full `.env`.
+Route Better Auth's built-in `/sign-in/email` and `/sign-up/email` through Firebase (requires `firebaseConfig`):
+
+```ts
+firebaseAuthPlugin({
+  overrideEmailPasswordFlow: true,
+  firebaseConfig: { ... },
+  firebaseAdminAuth: getAuth(),
+})
+```
+
+---
+
+## Password Reset
+
+Firebase handles the email delivery. No email provider setup required.
+
+### Plugin config
+
+```ts
+firebaseAuthPlugin({
+  firebaseConfig: {
+    apiKey: process.env.FIREBASE_API_KEY!,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN!,
+    projectId: process.env.FIREBASE_PROJECT_ID!,
+  },
+  passwordResetUrl: "https://myapp.com/reset-password", // optional custom page
+})
+```
+
+### Reset flow
+
+```tsx
+// 1. Send reset email
+await authClient.sendPasswordReset({ email: "user@example.com" });
+
+// 2. On the reset page, extract the code Firebase appended to the URL
+import { extractOobCodeFromUrl } from "better-auth-firebase-auth/client";
+const oobCode = extractOobCodeFromUrl(); // reads ?oobCode= from current URL
+
+// 3. Optionally verify the code and pre-fill the email
+const { email } = await authClient.verifyPasswordResetCode({ oobCode });
+
+// 4. Confirm the new password
+await authClient.confirmPasswordReset({ oobCode, newPassword: "newpass123" });
+```
+
+### Firebase Console setup for password reset
+
+1. Enable **Email/Password** in **Authentication** → **Sign-in method**
+2. Add your domain to **Authentication** → **Settings** → **Authorized domains** (required for custom `passwordResetUrl`)
+3. Optionally customize templates in **Authentication** → **Templates** → **Password reset**
+
+---
+
+## Server-side only mode
+
+When `serverSideOnly: true`, no endpoints are registered. Auth happens entirely through hooks that intercept Better Auth routes:
+
+```ts
+firebaseAuthPlugin({
+  serverSideOnly: true,
+  overrideEmailPasswordFlow: true,
+  firebaseConfig: { ... },
+  firebaseAdminAuth: getAuth(),
+})
+```
+
+---
+
+## Options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `useClientSideTokens` | `boolean` | `true` | Client obtains Firebase token; server only verifies. |
+| `overrideEmailPasswordFlow` | `boolean` | `false` | Intercept Better Auth email routes and route through Firebase. |
+| `serverSideOnly` | `boolean` | `false` | Register no endpoints; use hooks only. |
+| `firebaseAdminAuth` | `Auth` | `getAuth()` | Firebase Admin Auth instance. |
+| `firebaseConfig` | `FirebaseOptions` | — | Required for server-side mode, password reset, and `overrideEmailPasswordFlow`. |
+| `sessionExpiresInDays` | `number` | `7` | Better Auth session lifetime. |
+| `passwordResetUrl` | `string` | — | Custom URL Firebase appends the reset code to. |
+| `getPhoneUserFallbackEmail` | `({ uid, phoneNumber }) => string` | `${uid}@firebase.local` | Generate a stable synthetic email for phone-only users. |
+
+---
+
+## Better Auth Compatibility
+
+- **Better Auth v1.5+:** `createAuthMiddleware` from `better-auth/api` (preferred)
+- **Older releases:** falls back to `better-auth/plugins`
+
+---
 
 ## FAQ
 
 ### What is `better-auth-firebase-auth`?
 
-`better-auth-firebase-auth` is a Better Auth plugin that connects Firebase Authentication to Better Auth sessions. It lets you use Firebase sign-in flows while still using Better Auth for session management and app-level auth features.
+A Better Auth plugin that bridges Firebase Authentication identities into Better Auth sessions. Firebase verifies identity; Better Auth manages sessions, users, organizations, and plugins.
 
-### Does this plugin support Google Sign-In and email/password authentication?
+### Does this support Firebase Phone Authentication?
 
-Yes. The plugin supports Google Sign-In and email/password authentication, including password reset endpoints and helpers. Additional Firebase providers (such as GitHub, Apple, phone auth, and MFA) are not yet implemented in this package.
+Yes. Phone Auth is a first-class supported method as of v0.2. Firebase handles SMS OTP verification and issues a signed ID token; this plugin verifies that token and creates the Better Auth session. No Twilio or external SMS provider is needed.
 
-### How is this different from using Firebase Auth alone?
+### How is Firebase Phone Auth with Better Auth different from Better Auth's built-in phone plugin?
 
-Firebase Auth handles identity (who the user is), while this plugin bridges Firebase identities into Better Auth users, accounts, and sessions. This is useful when your app already uses Better Auth and you want Firebase providers and Firebase-managed email flows.
+Better Auth's `phoneNumber` plugin manages the OTP lifecycle itself (requires an SMS provider like Twilio). This plugin delegates OTP to Firebase — Google manages SMS delivery, reCAPTCHA, rate limiting, and fraud prevention. Use this plugin when you are already on Firebase or want to avoid setting up a separate SMS provider.
+
+### Does this plugin support Google Sign-In and email/password?
+
+Yes. Google Sign-In, email/password, and phone are all supported. Password reset uses Firebase email delivery — no separate email provider setup required.
 
 ### Should I use client-side or server-side token generation?
 
-Use client-side token generation (`useClientSideTokens: true`) for the simplest setup. Use server-side token generation (`useClientSideTokens: false`) when you want the server to handle Firebase client initialization and token exchange logic.
+Use `useClientSideTokens: true` (default) for the simplest setup. Use `false` when you want the server to own Firebase client initialization.
 
-### Can I use this package in a Next.js app?
+### Can I use this with Next.js?
 
-Yes. The package is designed for modern TypeScript apps and works well with Next.js. Use `better-auth-firebase-auth/server` in server code and `better-auth-firebase-auth/client` in browser/client code to avoid bundling issues.
+Yes. Use `better-auth-firebase-auth/server` in server code and `better-auth-firebase-auth/client` in browser/client code to avoid bundling Firebase Admin into the client bundle.
 
 ### Does this plugin override Better Auth email/password by default?
 
-No. `overrideEmailPasswordFlow` is `false` by default. You can opt in to override Better Auth email/password routes when you want Firebase to be the source of truth for those credentials.
+No. Set `overrideEmailPasswordFlow: true` to opt in.
+
+---
+
+## Example Project
+
+See the [minimal Next.js example](./examples/minimal) for a complete working setup including Google Sign-In and email/password. The example README explains build-time defaults so `next build` works without a full `.env`.
+
+---
 
 ## Firestore Adapter
 
-For storing Better Auth data in Firestore, see [@yultyyev/better-auth-firestore](https://www.npmjs.com/package/@yultyyev/better-auth-firestore):
-
-```bash
-npm install @yultyyev/better-auth-firestore
-```
+To store Better Auth data in Firestore, use [@yultyyev/better-auth-firestore](https://www.npmjs.com/package/@yultyyev/better-auth-firestore):
 
 ```ts
 import { firestoreAdapter } from "@yultyyev/better-auth-firestore";
@@ -466,9 +372,11 @@ export const auth = betterAuth({
 });
 ```
 
+---
+
 ## Contributing
 
-Contributions are welcome! Please follow the [Better Auth Contributing Guide](https://www.better-auth.com/docs/reference/contributing) for development setup and code style.
+Contributions are welcome. Please follow the [Better Auth Contributing Guide](https://www.better-auth.com/docs/reference/contributing) for development setup and code style.
 
 ## License
 

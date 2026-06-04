@@ -41,5 +41,6 @@ For production or any shared environment, configure **all** variables above (see
 - Client-side token generation mode
 - Sign in with Google
 - Sign in with email/password
+- Firebase Phone Authentication (SMS OTP via Firebase — no Twilio needed)
 - Password reset
 
