@@ -41,6 +41,7 @@ describe("firebaseAuthClientPlugin", () => {
 			expect(actions).toBeDefined();
 			expect(actions?.signInWithGoogle).toBeDefined();
 			expect(actions?.signInWithEmail).toBeDefined();
+			expect(actions?.signInWithPhone).toBeDefined();
 			expect(actions?.sendPasswordReset).toBeDefined();
 			expect(actions?.confirmPasswordReset).toBeDefined();
 		});
@@ -162,6 +163,63 @@ describe("firebaseAuthClientPlugin", () => {
 						email: "test@example.com",
 						password: "password123",
 					}),
+				}),
+			);
+		});
+	});
+
+	describe("signInWithPhone", () => {
+		it("should call correct endpoint with idToken", async () => {
+			const plugin = firebaseAuthClientPlugin();
+			const actions = plugin.getActions?.(
+				mockFetch as any,
+				{} as any,
+				{} as any,
+			);
+			if (!actions) throw new Error("Actions should be defined");
+
+			mockFetch.mockResolvedValue({
+				json: () =>
+					Promise.resolve({
+						user: { id: "user-123", email: "phone-uid@firebase.local" },
+						session: { id: "session-123", token: "token-123" },
+					}),
+			});
+
+			await actions.signInWithPhone({ idToken: "phone-id-token" });
+
+			expect(mockFetch).toHaveBeenCalledWith(
+				"/firebase-auth/sign-in-with-phone",
+				expect.objectContaining({
+					method: "POST",
+					body: JSON.stringify({ idToken: "phone-id-token" }),
+				}),
+			);
+		});
+
+		it("should accept optional fetchOptions", async () => {
+			const plugin = firebaseAuthClientPlugin();
+			const actions = plugin.getActions?.(
+				mockFetch as any,
+				{} as any,
+				{} as any,
+			);
+			if (!actions) throw new Error("Actions should be defined");
+
+			mockFetch.mockResolvedValue({
+				json: () => Promise.resolve({ success: true }),
+			});
+
+			await actions.signInWithPhone(
+				{ idToken: "phone-id-token" },
+				{ headers: { "Custom-Header": "value" } },
+			);
+
+			expect(mockFetch).toHaveBeenCalledWith(
+				"/firebase-auth/sign-in-with-phone",
+				expect.objectContaining({
+					method: "POST",
+					headers: { "Custom-Header": "value" },
 				}),
 			);
 		});

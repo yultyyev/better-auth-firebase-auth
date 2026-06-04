@@ -9,6 +9,17 @@ export interface FirebaseAuthPluginOptions {
 	firebaseConfig?: FirebaseOptions;
 	sessionExpiresInDays?: number;
 	passwordResetUrl?: string;
+	/**
+	 * Generate a stable synthetic email for phone-only Firebase users who have
+	 * no email on their Firebase account. The returned value is stored as the
+	 * Better Auth user email and must be unique per user.
+	 *
+	 * Defaults to `${uid}@firebase.local`.
+	 */
+	getPhoneUserFallbackEmail?: (params: {
+		uid: string;
+		phoneNumber: string;
+	}) => string;
 }
 
 export interface SignInWithGoogleRequest {
@@ -19,6 +30,10 @@ export interface SignInWithEmailRequest {
 	idToken?: string;
 	email?: string;
 	password?: string;
+}
+
+export interface SignInWithPhoneRequest {
+	idToken: string;
 }
 
 export interface SendPasswordResetRequest {

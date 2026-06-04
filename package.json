@@ -2,7 +2,7 @@
   "name": "better-auth-firebase-auth",
   "version": "0.0.0-development",
   "private": false,
-  "description": "Firebase Authentication plugin for Better Auth",
+  "description": "Use Firebase Authentication (Phone, Google, Email) with Better Auth sessions, plugins, and organizations",
   "author": "Slava Yultyyev <yultyyev@gmail.com>",
   "license": "MIT",
   "type": "module",
@@ -49,13 +49,18 @@
   "publishConfig": {
     "access": "public"
   },
+  "homepage": "https://github.com/yultyyev/better-auth-firebase-auth#readme",
   "keywords": [
     "better-auth",
     "firebase",
     "firebase-auth",
+    "firebase-phone-auth",
+    "phone-auth",
+    "sms-auth",
+    "phone-number",
+    "google-signin",
     "authentication",
-    "authjs",
-    "nextauth",
+    "nextjs",
     "oauth",
     "session",
     "typescript"

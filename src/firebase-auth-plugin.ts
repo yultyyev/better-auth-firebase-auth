@@ -15,6 +15,7 @@ type DecodedToken = {
 	name?: string | null;
 	picture?: string | null;
 	email_verified?: boolean;
+	phone_number?: string | null;
 	exp?: number;
 };
 
@@ -119,6 +120,7 @@ export const firebaseAuthPlugin = (
 		firebaseConfig,
 		sessionExpiresInDays = 7,
 		passwordResetUrl,
+		getPhoneUserFallbackEmail = ({ uid }) => `${uid}@firebase.local`,
 	} = options;
 
 	const adminAuth = firebaseAdminAuth || getAuth();
@@ -232,6 +234,56 @@ export const firebaseAuthPlugin = (
 					}
 					throw error;
 				}
+			},
+		);
+
+		endpoints.signInWithPhone = createAuthEndpoint(
+			"/firebase-auth/sign-in-with-phone",
+			{
+				method: "POST",
+			},
+			async (ctx) => {
+				const { idToken } = ctx.body as { idToken: string };
+
+				if (!idToken) {
+					throw new APIError("BAD_REQUEST", {
+						message: "idToken is required",
+					});
+				}
+
+				let decodedToken: DecodedToken;
+				try {
+					decodedToken = await adminAuth.verifyIdToken(idToken);
+				} catch (error) {
+					if (error instanceof Error) {
+						throw new APIError("UNAUTHORIZED", {
+							message: `Firebase token verification failed: ${error.message}`,
+						});
+					}
+					throw error;
+				}
+
+				if (!decodedToken.phone_number) {
+					throw new APIError("BAD_REQUEST", {
+						message:
+							"Firebase token does not contain a verified phone number. Ensure the token was issued by Firebase Phone Authentication.",
+					});
+				}
+
+				const resolvedEmail =
+					decodedToken.email ||
+					getPhoneUserFallbackEmail({
+						uid: decodedToken.uid,
+						phoneNumber: decodedToken.phone_number,
+					});
+
+				const result = await createOrUpdateUser(
+					ctx,
+					{ ...decodedToken, email: resolvedEmail },
+					idToken,
+					sessionExpiresInDays,
+				);
+				return ctx.json(result);
 			},
 		);
 

@@ -7,6 +7,7 @@ import type {
 	SendPasswordResetRequest,
 	SignInWithEmailRequest,
 	SignInWithGoogleRequest,
+	SignInWithPhoneRequest,
 	VerifyPasswordResetCodeRequest,
 	VerifyPasswordResetCodeResponse,
 } from "./types";
@@ -43,6 +44,17 @@ export const firebaseAuthClientPlugin = (
 					fetchOptions?: RequestInit,
 				): Promise<AuthResponse> {
 					return fetch("/firebase-auth/sign-in-with-email", {
+						method: "POST",
+						body: JSON.stringify(data),
+						...fetchOptions,
+					});
+				},
+
+				async signInWithPhone(
+					data: SignInWithPhoneRequest,
+					fetchOptions?: RequestInit,
+				): Promise<AuthResponse> {
+					return fetch("/firebase-auth/sign-in-with-phone", {
 						method: "POST",
 						body: JSON.stringify(data),
 						...fetchOptions,
