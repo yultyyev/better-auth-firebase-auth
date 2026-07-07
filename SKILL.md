@@ -1,6 +1,5 @@
 ---
 name: firebase-auth-better-auth
-version: 1.0.0
 description: >-
   Add Firebase Authentication (Phone SMS OTP, Google Sign-In, Email/Password)
   to a Better Auth app using the better-auth-firebase-auth plugin. Use when
@@ -34,7 +33,7 @@ description: >-
 ## Install
 
 ```bash
-pnpm add better-auth-firebase-auth firebase-admin firebase
+pnpm add better-auth-firebase-auth firebase-admin firebase better-auth
 ```
 
 ---
@@ -153,6 +152,26 @@ await authClient.sendPasswordReset({ email });
 
 ---
 
+## Using with the Firestore adapter
+
+To store Better Auth data in Firestore, combine with `better-auth-firestore`:
+
+```ts
+import { firestoreAdapter } from "better-auth-firestore";
+import { firebaseAuthPlugin } from "better-auth-firebase-auth/server";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
+
+export const auth = betterAuth({
+  database: firestoreAdapter({ firestore: getFirestore() }),
+  plugins: [firebaseAuthPlugin({ firebaseAdminAuth: getAuth() })],
+});
+```
+
+Remember to create the required Firestore composite index on the verification collection — see [better-auth-firestore](https://github.com/yultyyev/better-auth-firestore).
+
+---
+
 ## Key options
 
 | Option | Default | Notes |
@@ -166,6 +185,20 @@ await authClient.sendPasswordReset({ email });
 
 ---
 
+## Runtime support
+
+| Runtime | Supported |
+|---|---|
+| Node 18+ | ✅ |
+| Next.js on Vercel (Node.js runtime) | ✅ Recommended |
+| Cloud Functions / Cloud Run | ✅ |
+| Vercel Edge Runtime (`runtime = 'edge'`) | ❌ Admin SDK requires Node.js |
+| Cloudflare Workers | ❌ Admin SDK requires Node.js |
+
+**Note:** Vercel deploys work fine — the restriction is only when you explicitly opt into the Edge Runtime (`export const runtime = 'edge'`). The default Node.js serverless runtime on Vercel is fully supported.
+
+---
+
 ## Common mistakes
 
 - **Importing `firebaseAuthPlugin` in client code** — crashes on `firebase-admin`. Always use the `/server` path on the server and `/client` path in the browser.
@@ -173,3 +206,4 @@ await authClient.sendPasswordReset({ email });
 - **Missing reCAPTCHA container** — `signInWithPhoneNumber` requires a `RecaptchaVerifier` with a DOM element id. For invisible reCAPTCHA use `size: "invisible"`.
 - **Firebase Admin not initialized before `getAuth()`** — call `initializeApp()` once before passing `getAuth()` to the plugin.
 - **Using `overrideEmailPasswordFlow: true` without `firebaseConfig`** — throws at startup. This mode requires the Firebase client SDK config.
+- **FIREBASE_PRIVATE_KEY with literal `\n`** — Always call `.replace(/\\n/g, "\n")` on the key before passing to `cert()`.
