@@ -1,0 +1,23 @@
+packages:
+  - .
+
+allowBuilds:
+  "@firebase/util": false
+  better-sqlite3: true
+  esbuild: false
+  protobufjs: false
+
+overrides:
+  "@grpc/grpc-js": ">=1.14.4"
+  "@tootallnate/once": "^3.0.1"
+  brace-expansion: ">=5.0.6"
+  defu: "^6.1.5"
+  esbuild: ">=0.28.1"
+  form-data@<2.5.6: ">=2.5.6"
+  js-yaml@>=4.0.0 <4.2.0: ">=4.2.0"
+  lodash: "^4.18.0"
+  lodash-es: "^4.18.0"
+  protobufjs: "^7.6.3"
+  undici: ">=7.28.0 <8"
+  uuid@<11.1.0: ">=11.1.0"
+  vite: ">=7.3.5 <8"
