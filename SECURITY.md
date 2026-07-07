@@ -2,17 +2,19 @@
 
 ## Reporting a Vulnerability
 
-If you believe you have found a security vulnerability in **better-auth-firebase-auth**, please report it privately. Do not open a public GitHub issue for security reports.
+If you believe you have found a security vulnerability in **better-auth-firebase-auth**, please report it through GitHub:
 
-**Preferred:** Use [GitHub private vulnerability reporting](https://github.com/yultyyev/better-auth-firebase-auth/security/advisories/new) on this repository.
+**Preferred:** [Private vulnerability reporting](https://github.com/yultyyev/better-auth-firebase-auth/security/advisories/new) on this repository.
 
-**Alternative:** Email [yultyyev@gmail.com](mailto:yultyyev@gmail.com) with:
+**Alternative:** Open a [GitHub issue](https://github.com/yultyyev/better-auth-firebase-auth/issues/new) or [pull request](https://github.com/yultyyev/better-auth-firebase-auth/compare) with:
 
 - A description of the vulnerability
 - Steps to reproduce
 - Affected versions
 - Potential impact
 - Suggested mitigation, if any
+
+For non-security bugs and feature requests, use [GitHub issues](https://github.com/yultyyev/better-auth-firebase-auth/issues) as usual.
 
 We aim to acknowledge reports within **72 hours** and will work with you on a fix and coordinated disclosure.
 
