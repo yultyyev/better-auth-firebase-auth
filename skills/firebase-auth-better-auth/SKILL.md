@@ -1,5 +1,6 @@
 ---
 name: firebase-auth-better-auth
+version: 1.0.0
 description: >-
   Add Firebase Authentication (Phone SMS OTP, Google Sign-In, Email/Password)
   to a Better Auth app using the better-auth-firebase-auth plugin. Use when

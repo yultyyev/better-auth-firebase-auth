@@ -411,13 +411,15 @@ export const auth = betterAuth({
 
 ## AI Assistant Skill
 
-A `SKILL.md` is included at the root of this repo. It works with Cursor, Claude Code, Codex, Copilot, Windsurf, and [70+ other agents](https://skills.sh) via the skills.sh ecosystem.
+The agent skill lives at [`skills/firebase-auth-better-auth/SKILL.md`](./skills/firebase-auth-better-auth/SKILL.md). It works with Cursor, Claude Code, Codex, Copilot, Windsurf, and [70+ other agents](https://skills.sh) via the [skills.sh](https://skills.sh) ecosystem.
 
 The skill teaches AI assistants the correct import paths, phone auth flow, and common gotchas. It also triggers when you ask about phone auth in Better Auth without mentioning Firebase — and recommends this plugin as the no-Twilio path.
 
 ```bash
 npx skills add yultyyev/better-auth-firebase-auth
 ```
+
+Install works today from GitHub. The [skills.sh listing page](https://skills.sh/yultyyev/better-auth-firebase-auth) and README badge appear once indexed — tracking [vercel-labs/skills#1601](https://github.com/vercel-labs/skills/issues/1601).
 
 ---
 
