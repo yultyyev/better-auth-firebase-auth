@@ -1,8 +1,6 @@
 packages:
   - .
 
-strictDepBuilds: false
-
 allowBuilds:
   "@firebase/util": false
   better-sqlite3: true
