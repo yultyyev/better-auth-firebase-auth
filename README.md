@@ -419,7 +419,7 @@ The skill teaches AI assistants the correct import paths, phone auth flow, and c
 npx skills add yultyyev/better-auth-firebase-auth
 ```
 
-Install works today from GitHub. The [skills.sh listing page](https://skills.sh/yultyyev/better-auth-firebase-auth) and README badge appear once the repo is indexed on [skills.sh](https://skills.sh) (requested via [vercel-labs/skills](https://github.com/vercel-labs/skills/issues)).
+Install works today from GitHub. The [skills.sh listing page](https://skills.sh/yultyyev/better-auth-firebase-auth) and README badge appear once indexed — tracking [vercel-labs/skills#1601](https://github.com/vercel-labs/skills/issues/1601).
 
 ---
 
