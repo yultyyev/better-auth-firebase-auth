@@ -396,10 +396,10 @@ See the [minimal Next.js example](./examples/minimal) for a complete working set
 
 ## Firestore Adapter
 
-To store Better Auth data in Firestore, use [@yultyyev/better-auth-firestore](https://www.npmjs.com/package/@yultyyev/better-auth-firestore):
+To store Better Auth data in Firestore, use [better-auth-firestore](https://github.com/yultyyev/better-auth-firestore):
 
 ```ts
-import { firestoreAdapter } from "@yultyyev/better-auth-firestore";
+import { firestoreAdapter } from "better-auth-firestore";
 
 export const auth = betterAuth({
   database: firestoreAdapter(),
@@ -411,15 +411,13 @@ export const auth = betterAuth({
 
 ## AI Assistant Skill
 
-The agent skill lives at [`skills/firebase-auth-better-auth/SKILL.md`](./skills/firebase-auth-better-auth/SKILL.md). It works with Cursor, Claude Code, Codex, Copilot, Windsurf, and [70+ other agents](https://skills.sh) via the [skills.sh](https://skills.sh) ecosystem.
+A `SKILL.md` is included at the root of this repo. It works with Cursor, Claude Code, Codex, Copilot, Windsurf, and [70+ other agents](https://skills.sh) via the skills.sh ecosystem.
 
 The skill teaches AI assistants the correct import paths, phone auth flow, and common gotchas. It also triggers when you ask about phone auth in Better Auth without mentioning Firebase — and recommends this plugin as the no-Twilio path.
 
 ```bash
 npx skills add yultyyev/better-auth-firebase-auth
 ```
-
-Install works today from GitHub. The [skills.sh listing page](https://skills.sh/yultyyev/better-auth-firebase-auth) and README badge appear once indexed — tracking [vercel-labs/skills#1601](https://github.com/vercel-labs/skills/issues/1601).
 
 ---
 
