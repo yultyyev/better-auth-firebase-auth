@@ -81,10 +81,10 @@ importers:
     dependencies:
       better-auth:
         specifier: ^1.5.6
-        version: 1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.11.1)(mongodb@7.1.0)(next@16.2.10(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.0)(vite@7.3.6(@types/node@26.1.0)(lightningcss@1.32.0)))
+        version: 1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.11.1)(mongodb@7.1.0)(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@7.3.6(@types/node@24.13.2)(lightningcss@1.32.0)))
       better-auth-firebase-auth:
         specifier: file:../..
-        version: file:(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.11.1)(mongodb@7.1.0)(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.0)(vite@7.3.6(@types/node@26.1.0)(lightningcss@1.32.0))))(firebase-admin@13.8.0)(firebase@12.12.0)(typescript@6.0.3)
+        version: file:(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.11.1)(mongodb@7.1.0)(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@7.3.6(@types/node@24.13.2)(lightningcss@1.32.0))))(firebase-admin@13.8.0)(firebase@12.12.0)(typescript@6.0.3)
       firebase:
         specifier: ^12.11.0
         version: 12.12.0
@@ -102,8 +102,8 @@ importers:
         version: 19.2.7(react@19.2.7)
     devDependencies:
       '@types/node':
-        specifier: ^26.1.0
-        version: 26.1.0
+        specifier: ^24.13.2
+        version: 24.13.2
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.17
@@ -1417,6 +1417,9 @@ packages:
 
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
+
+  '@types/node@24.13.2':
+    resolution: {integrity: sha512-fRa09kZTgu8o71KFcDjUFuc7F+dEbZYZmkI0mg5YBTRs0yMKjYHsq/c0urDKeDb+D5qVgXOdFcuu+DZPKOITwA==}
 
   '@types/node@26.1.0':
     resolution: {integrity: sha512-O0A1G3xPGy4w7AgQdAQYUlQ+BKk2Oovw8eRpofyp5KdBZULnbe+WqaOVNrm705SHphCiG4XHsACrSmPu1f+Kgw==}
@@ -4251,6 +4254,9 @@ packages:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
     engines: {node: '>= 0.4'}
 
+  undici-types@7.18.2:
+    resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
+
   undici-types@8.3.0:
     resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
@@ -5778,6 +5784,10 @@ snapshots:
 
   '@types/ms@2.1.0': {}
 
+  '@types/node@24.13.2':
+    dependencies:
+      undici-types: 7.18.2
+
   '@types/node@26.1.0':
     dependencies:
       undici-types: 8.3.0
@@ -5981,6 +5991,15 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
+  '@vitest/mocker@4.1.10(vite@7.3.6(@types/node@24.13.2)(lightningcss@1.32.0))':
+    dependencies:
+      '@vitest/spy': 4.1.10
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 7.3.6(@types/node@24.13.2)(lightningcss@1.32.0)
+    optional: true
+
   '@vitest/mocker@4.1.10(vite@7.3.6(@types/node@26.1.0)(lightningcss@1.32.0))':
     dependencies:
       '@vitest/spy': 4.1.10
@@ -6180,12 +6199,42 @@ snapshots:
 
   before-after-hook@4.0.0: {}
 
-  better-auth-firebase-auth@file:(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.11.1)(mongodb@7.1.0)(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.0)(vite@7.3.6(@types/node@26.1.0)(lightningcss@1.32.0))))(firebase-admin@13.8.0)(firebase@12.12.0)(typescript@6.0.3):
+  better-auth-firebase-auth@file:(better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.11.1)(mongodb@7.1.0)(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@7.3.6(@types/node@24.13.2)(lightningcss@1.32.0))))(firebase-admin@13.8.0)(firebase@12.12.0)(typescript@6.0.3):
     dependencies:
-      better-auth: 1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.11.1)(mongodb@7.1.0)(next@16.2.10(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.0)(vite@7.3.6(@types/node@26.1.0)(lightningcss@1.32.0)))
+      better-auth: 1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.11.1)(mongodb@7.1.0)(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@7.3.6(@types/node@24.13.2)(lightningcss@1.32.0)))
       firebase: 12.12.0
       firebase-admin: 13.8.0
       typescript: 6.0.3
+
+  better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.11.1)(mongodb@7.1.0)(next@16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@7.3.6(@types/node@24.13.2)(lightningcss@1.32.0))):
+    dependencies:
+      '@better-auth/core': 1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@opentelemetry/api@1.9.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.3)(kysely@0.28.17)(nanostores@1.3.0)
+      '@better-auth/drizzle-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@opentelemetry/api@1.9.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.3)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)
+      '@better-auth/kysely-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@opentelemetry/api@1.9.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.3)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(kysely@0.28.17)
+      '@better-auth/memory-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@opentelemetry/api@1.9.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.3)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)
+      '@better-auth/mongo-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@opentelemetry/api@1.9.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.3)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(mongodb@7.1.0)
+      '@better-auth/prisma-adapter': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@opentelemetry/api@1.9.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.3)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)
+      '@better-auth/telemetry': 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(@opentelemetry/api@1.9.1)(better-call@1.3.5(zod@4.4.3))(jose@6.2.3)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)
+      '@better-auth/utils': 0.4.0
+      '@better-fetch/fetch': 1.1.21
+      '@noble/ciphers': 2.2.0
+      '@noble/hashes': 2.2.0
+      better-call: 1.3.5(zod@4.4.3)
+      defu: 6.1.7
+      jose: 6.2.3
+      kysely: 0.28.17
+      nanostores: 1.3.0
+      zod: 4.4.3
+    optionalDependencies:
+      better-sqlite3: 12.11.1
+      mongodb: 7.1.0
+      next: 16.2.10(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react: 19.2.7
+      react-dom: 19.2.7(react@19.2.7)
+      vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@7.3.6(@types/node@24.13.2)(lightningcss@1.32.0))
+    transitivePeerDependencies:
+      - '@cloudflare/workers-types'
+      - '@opentelemetry/api'
 
   better-auth@1.6.11(@opentelemetry/api@1.9.1)(better-sqlite3@12.11.1)(mongodb@7.1.0)(next@16.2.10(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.0)(vite@7.3.6(@types/node@26.1.0)(lightningcss@1.32.0))):
     dependencies:
@@ -8943,6 +8992,8 @@ snapshots:
       has-symbols: 1.1.0
       which-boxed-primitive: 1.1.1
 
+  undici-types@7.18.2: {}
+
   undici-types@8.3.0: {}
 
   undici@7.28.0: {}
@@ -9011,6 +9062,20 @@ snapshots:
       spdx-correct: 3.2.0
       spdx-expression-parse: 3.0.1
 
+  vite@7.3.6(@types/node@24.13.2)(lightningcss@1.32.0):
+    dependencies:
+      esbuild: 0.28.1
+      fdir: 6.5.0(picomatch@4.0.5)
+      picomatch: 4.0.5
+      postcss: 8.5.16
+      rollup: 4.62.2
+      tinyglobby: 0.2.17
+    optionalDependencies:
+      '@types/node': 24.13.2
+      fsevents: 2.3.3
+      lightningcss: 1.32.0
+    optional: true
+
   vite@7.3.6(@types/node@26.1.0)(lightningcss@1.32.0):
     dependencies:
       esbuild: 0.28.1
@@ -9023,6 +9088,35 @@ snapshots:
       '@types/node': 26.1.0
       fsevents: 2.3.3
       lightningcss: 1.32.0
+
+  vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@7.3.6(@types/node@24.13.2)(lightningcss@1.32.0)):
+    dependencies:
+      '@vitest/expect': 4.1.10
+      '@vitest/mocker': 4.1.10(vite@7.3.6(@types/node@24.13.2)(lightningcss@1.32.0))
+      '@vitest/pretty-format': 4.1.10
+      '@vitest/runner': 4.1.10
+      '@vitest/snapshot': 4.1.10
+      '@vitest/spy': 4.1.10
+      '@vitest/utils': 4.1.10
+      es-module-lexer: 2.3.0
+      expect-type: 1.4.0
+      magic-string: 0.30.21
+      obug: 2.1.3
+      pathe: 2.0.3
+      picomatch: 4.0.5
+      std-env: 4.1.0
+      tinybench: 2.9.0
+      tinyexec: 1.2.4
+      tinyglobby: 0.2.17
+      tinyrainbow: 3.1.0
+      vite: 7.3.6(@types/node@24.13.2)(lightningcss@1.32.0)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.1
+      '@types/node': 24.13.2
+    transitivePeerDependencies:
+      - msw
+    optional: true
 
   vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.0)(vite@7.3.6(@types/node@26.1.0)(lightningcss@1.32.0)):
     dependencies:
