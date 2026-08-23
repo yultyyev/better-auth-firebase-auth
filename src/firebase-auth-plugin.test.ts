@@ -302,6 +302,7 @@ describe("firebaseAuthPlugin", () => {
 				expect(mockInternalAdapter.updateAccount).toHaveBeenCalledWith(
 					"account-456",
 					{
+						userId: "user-123",
 						idToken: "id-token-abc",
 						accessTokenExpiresAt: expect.any(Date),
 					},
@@ -463,7 +464,7 @@ describe("firebaseAuthPlugin", () => {
 				expect(modernAdapter.linkAccount).not.toHaveBeenCalled();
 				expect(modernAdapter.updateAccount).toHaveBeenCalledWith(
 					"account-456",
-					expect.any(Object),
+					expect.objectContaining({ userId: "user-123" }),
 				);
 			});
 		});
@@ -1089,5 +1090,45 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		const data2 = res2.data as any;
 		expect(data1.user.id).toBe(data2.user.id);
 		expect(data1.user.email).toBe(data2.user.email);
+	});
+
+	it("should re-parent an orphaned account when the user row was deleted", async () => {
+		const { client, auth } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({
+						firebaseAdminAuth: mockAdminAuth as any,
+					}),
+				],
+			},
+			{ disableTestUser: true },
+		);
+
+		const res1 = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "token-1" },
+		});
+		const firstUserId = (res1.data as any).user.id;
+
+		// Simulate a user row deleted without cascading to accounts.
+		const ctx = await (auth as any).$context;
+		await ctx.adapter.delete({
+			model: "user",
+			where: [{ field: "id", value: firstUserId }],
+		});
+
+		const res2 = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "token-2" },
+		});
+		const secondUserId = (res2.data as any).user.id;
+		expect(secondUserId).not.toBe(firstUserId);
+
+		const accounts = await ctx.adapter.findMany({
+			model: "account",
+			where: [{ field: "accountId", value: mockDecodedToken.uid }],
+		});
+		expect(accounts).toHaveLength(1);
+		expect((accounts[0] as any).userId).toBe(secondUserId);
 	});
 });

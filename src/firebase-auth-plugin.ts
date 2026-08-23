@@ -141,6 +141,10 @@ export const createOrUpdateUser = async (
 		});
 	} else {
 		await internalAdapter.updateAccount(existingAccount.id, {
+			// Re-parent the row when its user was deleted (an "orphaned" account):
+			// without this it would keep pointing at the dead user id forever. For
+			// an owned account this writes the same value back.
+			userId: user.id,
 			idToken,
 			accessTokenExpiresAt: decodedToken.exp
 				? new Date(decodedToken.exp * 1000)
