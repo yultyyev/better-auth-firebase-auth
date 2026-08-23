@@ -1,6 +1,9 @@
 import { setSessionCookie } from "better-auth/cookies";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createOrUpdateUser, firebaseAuthPlugin } from "./firebase-auth-plugin";
+import {
+	createOrUpdateUser,
+	firebaseAuthPlugin,
+} from "./firebase-auth-plugin.js";
 
 vi.mock("firebase-admin/auth", () => ({
 	getAuth: vi.fn(() => ({
