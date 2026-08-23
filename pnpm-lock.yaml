@@ -50,6 +50,9 @@ importers:
       '@semantic-release/release-notes-generator':
         specifier: ^14.1.0
         version: 14.1.1(semantic-release@25.0.9(typescript@7.0.2))
+      '@types/node':
+        specifier: ^24
+        version: 24.13.3
       better-auth:
         specifier: ^1.7.1
         version: 1.7.1(@opentelemetry/api@1.9.1)(better-sqlite3@12.11.1)(mongodb@7.1.0)(next@16.3.2(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.7))(react@19.2.7))(react-dom@19.2.8(react@19.2.7))(react@19.2.7)(vitest@4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@7.3.6(@types/node@24.13.3)(lightningcss@1.32.0)))
@@ -1986,6 +1989,7 @@ packages:
   'better-auth-firebase-auth@file:':
     resolution: {directory: '', type: directory}
     engines: {node: '>=22'}
+    hasBin: true
     peerDependencies:
       better-auth: '>=1.5.0'
       firebase: '>=9'

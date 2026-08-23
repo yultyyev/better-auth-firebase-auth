@@ -657,7 +657,8 @@ const warnIfIssuerBackfillNeeded = async (ctx: {
 			ctx.logger?.warn(
 				`[better-auth-firebase-auth] ${missing} of ${total} Firebase account rows have no issuer. ` +
 					`Better Auth 1.7 looks accounts up by (issuer, accountId), so those users' Firebase links are not found until backfilled. ` +
-					`Run: await backfillAccountIssuers(auth) from "better-auth-firebase-auth/server" — ` +
+					`Run: npx better-auth-firebase-auth backfill-account-issuers --apply — ` +
+					`or await backfillAccountIssuers(auth) from "better-auth-firebase-auth/server" — ` +
 					`or SQL: UPDATE account SET issuer = '${FIREBASE_ACCOUNT_ISSUER}' WHERE providerId = '${FIREBASE_PROVIDER_ID}'. ` +
 					`Set migrationChecks: false on firebaseAuthPlugin() to silence this check.`,
 			);
@@ -670,6 +671,8 @@ const warnIfIssuerBackfillNeeded = async (ctx: {
 export interface BackfillAccountIssuersResult {
 	/** Firebase account rows matched by `providerId = "firebase"`. */
 	total: number;
+	/** Rows whose `issuer` is not `FIREBASE_ACCOUNT_ISSUER` yet. */
+	missing: number;
 	/** Rows written (0 on a dry run). The write is idempotent. */
 	updated: number;
 }
@@ -722,8 +725,19 @@ export const backfillAccountIssuers = async (
 	const where = [{ field: "providerId", value: FIREBASE_PROVIDER_ID }];
 
 	const total = await adapter.count({ model: "account", where });
+	const stamped =
+		total === 0
+			? 0
+			: await adapter.count({
+					model: "account",
+					where: [
+						...where,
+						{ field: "issuer", value: FIREBASE_ACCOUNT_ISSUER },
+					],
+				});
+	const missing = total - stamped;
 	if (options?.dryRun) {
-		return { total, updated: 0 };
+		return { total, missing, updated: 0 };
 	}
 
 	const updated =
@@ -734,5 +748,5 @@ export const backfillAccountIssuers = async (
 					where,
 					update: { issuer: FIREBASE_ACCOUNT_ISSUER },
 				});
-	return { total, updated };
+	return { total, missing, updated };
 };

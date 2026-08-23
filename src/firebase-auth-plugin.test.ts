@@ -588,38 +588,46 @@ describe("firebaseAuthPlugin", () => {
 		const auth = { $context: Promise.resolve({ adapter, tables }) } as any;
 
 		beforeEach(() => {
-			adapter.count.mockResolvedValue(3);
+			// First count: total firebase rows; second: rows already stamped.
+			adapter.count.mockResolvedValueOnce(3).mockResolvedValueOnce(1);
 			adapter.updateMany.mockResolvedValue(3);
 		});
 
 		it("should stamp the issuer on all firebase rows through the adapter", async () => {
 			const result = await backfillAccountIssuers(auth);
 
-			expect(adapter.count).toHaveBeenCalledWith({
+			expect(adapter.count).toHaveBeenNthCalledWith(1, {
 				model: "account",
 				where: [{ field: "providerId", value: "firebase" }],
+			});
+			expect(adapter.count).toHaveBeenNthCalledWith(2, {
+				model: "account",
+				where: [
+					{ field: "providerId", value: "firebase" },
+					{ field: "issuer", value: FIREBASE_ACCOUNT_ISSUER },
+				],
 			});
 			expect(adapter.updateMany).toHaveBeenCalledWith({
 				model: "account",
 				where: [{ field: "providerId", value: "firebase" }],
 				update: { issuer: FIREBASE_ACCOUNT_ISSUER },
 			});
-			expect(result).toEqual({ total: 3, updated: 3 });
+			expect(result).toEqual({ total: 3, missing: 2, updated: 3 });
 		});
 
 		it("should not write on a dry run", async () => {
 			const result = await backfillAccountIssuers(auth, { dryRun: true });
 
 			expect(adapter.updateMany).not.toHaveBeenCalled();
-			expect(result).toEqual({ total: 3, updated: 0 });
+			expect(result).toEqual({ total: 3, missing: 2, updated: 0 });
 		});
 
 		it("should not write when there are no firebase rows", async () => {
-			adapter.count.mockResolvedValue(0);
+			adapter.count.mockReset().mockResolvedValue(0);
 			const result = await backfillAccountIssuers(auth);
 
 			expect(adapter.updateMany).not.toHaveBeenCalled();
-			expect(result).toEqual({ total: 0, updated: 0 });
+			expect(result).toEqual({ total: 0, missing: 0, updated: 0 });
 		});
 
 		it("should refuse on Better Auth < 1.7 (no account.issuer field)", async () => {
@@ -676,6 +684,9 @@ describe("firebaseAuthPlugin", () => {
 			expect(ctx.logger.warn).toHaveBeenCalledOnce();
 			const message = ctx.logger.warn.mock.calls[0][0] as string;
 			expect(message).toContain("3 of 5");
+			expect(message).toContain(
+				"npx better-auth-firebase-auth backfill-account-issuers",
+			);
 			expect(message).toContain("backfillAccountIssuers");
 			expect(message).toContain(FIREBASE_ACCOUNT_ISSUER);
 			expect(message).toContain("migrationChecks: false");
@@ -1314,10 +1325,10 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		});
 
 		const dry = await backfillAccountIssuers(auth as any, { dryRun: true });
-		expect(dry).toEqual({ total: 1, updated: 0 });
+		expect(dry).toEqual({ total: 1, missing: 1, updated: 0 });
 
 		const result = await backfillAccountIssuers(auth as any);
-		expect(result).toEqual({ total: 1, updated: 1 });
+		expect(result).toEqual({ total: 1, missing: 1, updated: 1 });
 
 		// The stamped row is found by (issuer, accountId) again: same user, no duplicate.
 		const res2 = await client.$fetch("/firebase-auth/sign-in-with-google", {
