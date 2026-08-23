@@ -335,8 +335,30 @@ Both approaches add phone authentication to a Better Auth app. The right choice 
 
 ## Better Auth Compatibility
 
-- **Better Auth v1.5+:** `createAuthMiddleware` from `better-auth/api` (preferred)
-- **Older releases:** automatically falls back to `better-auth/plugins`
+One build of the plugin supports every Better Auth release since 1.5. The plugin detects the account-lookup API at runtime, and CI runs the test suite against the 1.5, 1.6, and 1.7 lines.
+
+| Better Auth | Status |
+|---|---|
+| 1.7.x | Supported — accounts keyed by `(issuer, accountId)` |
+| 1.5.x – 1.6.x | Supported — accounts keyed by `(providerId, accountId)` |
+| < 1.5 | Not supported |
+
+### Upgrading an existing app to Better Auth 1.7
+
+Better Auth 1.7 adds a required `issuer` column to the `account` table and looks accounts up by `(issuer, accountId)` — there is no fallback to `providerId`. `npx auth migrate` refuses to add a `NOT NULL` column to a populated table, so every existing install needs a one-time backfill. This is part of the [Better Auth 1.7 upgrade guide](https://better-auth.com/docs/guides/1-7-upgrade-guide#account-identity-is-scoped-by-issuer); the plugin-specific part is the value to use for Firebase rows:
+
+1. Add `issuer` to `account` as a **nullable** column.
+2. Backfill Firebase-linked rows (and any other providers you use, per the upgrade guide):
+
+   ```sql
+   UPDATE account SET issuer = 'local:oauth:firebase' WHERE "providerId" = 'firebase';
+   ```
+
+3. Make `issuer` `NOT NULL` and add the unique `(issuer, accountId)` index (`npx auth migrate` / `npx auth generate` can do this step once no row is empty).
+
+The value is exported as `FIREBASE_ACCOUNT_ISSUER` from `better-auth-firebase-auth/server` for use in migration scripts. New rows written on Better Auth 1.7 already carry it.
+
+If the backfill is skipped, sign-in still works: the plugin falls back to matching by email and links a fresh account row — but the old row is left orphaned and, on MySQL, `auth migrate` may have silently filled `issuer` with an empty string (see the upgrade guide's corruption check).
 
 ---
 

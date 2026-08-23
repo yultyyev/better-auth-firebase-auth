@@ -2,6 +2,7 @@ import { setSessionCookie } from "better-auth/cookies";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	createOrUpdateUser,
+	FIREBASE_ACCOUNT_ISSUER,
 	firebaseAuthPlugin,
 } from "./firebase-auth-plugin.js";
 
@@ -161,7 +162,7 @@ describe("firebaseAuthPlugin", () => {
 
 	describe("createOrUpdateUser", () => {
 		describe("new user (no existing OAuth or email match)", () => {
-			it("should call findOAuthUser with correct args", async () => {
+			it("should look up the Firebase account via findOAuthUser (better-auth < 1.7)", async () => {
 				const ctx = createMockCtx();
 				await createOrUpdateUser(ctx as any, mockDecodedToken, "id-token-abc");
 
@@ -176,12 +177,18 @@ describe("firebaseAuthPlugin", () => {
 				const ctx = createMockCtx();
 				await createOrUpdateUser(ctx as any, mockDecodedToken, "id-token-abc");
 
-				expect(mockInternalAdapter.createUser).toHaveBeenCalledWith({
-					email: "test@example.com",
-					name: "Test User",
-					image: "https://example.com/photo.jpg",
-					emailVerified: true,
-				});
+				expect(mockInternalAdapter.createUser).toHaveBeenCalledWith(
+					{
+						email: "test@example.com",
+						name: "Test User",
+						image: "https://example.com/photo.jpg",
+						emailVerified: true,
+					},
+					{
+						method: "oauth",
+						oauth: { providerId: "firebase", profile: mockDecodedToken },
+					},
+				);
 			});
 
 			it("should link a new account with correct field names", async () => {
@@ -190,6 +197,7 @@ describe("firebaseAuthPlugin", () => {
 
 				expect(mockInternalAdapter.linkAccount).toHaveBeenCalledWith({
 					providerId: "firebase",
+					issuer: FIREBASE_ACCOUNT_ISSUER,
 					accountId: "firebase-uid-123",
 					userId: "user-123",
 					idToken: "id-token-abc",
@@ -336,11 +344,127 @@ describe("firebaseAuthPlugin", () => {
 
 				expect(mockInternalAdapter.linkAccount).toHaveBeenCalledWith({
 					providerId: "firebase",
+					issuer: FIREBASE_ACCOUNT_ISSUER,
 					accountId: "firebase-uid-123",
 					userId: "user-123",
 					idToken: "id-token-abc",
 					accessTokenExpiresAt: expect.any(Date),
 				});
+			});
+		});
+
+		describe("better-auth >= 1.7 adapter (findAccountOwnerByKey)", () => {
+			// 1.7 removed findOAuthUser and keys accounts by (issuer, accountId)
+			const { findOAuthUser: _legacy, ...modernMethods } = mockInternalAdapter;
+			const modernAdapter = {
+				...modernMethods,
+				findAccountOwnerByKey: vi.fn(),
+			};
+			const createModernCtx = () => ({
+				context: { internalAdapter: modernAdapter },
+				body: {},
+				json: vi.fn((data: any) =>
+					Promise.resolve(new Response(JSON.stringify(data))),
+				),
+			});
+
+			beforeEach(() => {
+				modernAdapter.findAccountOwnerByKey.mockResolvedValue(null);
+			});
+
+			it("should look up the account by issuer + accountId and never call findOAuthUser", async () => {
+				await createOrUpdateUser(
+					createModernCtx() as any,
+					mockDecodedToken,
+					"id-token-abc",
+				);
+
+				expect(modernAdapter.findAccountOwnerByKey).toHaveBeenCalledWith({
+					issuer: FIREBASE_ACCOUNT_ISSUER,
+					accountId: "firebase-uid-123",
+				});
+				expect(FIREBASE_ACCOUNT_ISSUER).toBe("local:oauth:firebase");
+				expect(mockInternalAdapter.findOAuthUser).not.toHaveBeenCalled();
+			});
+
+			it("should create the user with a provisioning source and link with issuer when no account exists", async () => {
+				await createOrUpdateUser(
+					createModernCtx() as any,
+					mockDecodedToken,
+					"id-token-abc",
+				);
+
+				expect(modernAdapter.findUserByEmail).toHaveBeenCalledWith(
+					"test@example.com",
+				);
+				expect(modernAdapter.createUser).toHaveBeenCalledWith(
+					expect.objectContaining({ email: "test@example.com" }),
+					{
+						method: "oauth",
+						oauth: { providerId: "firebase", profile: mockDecodedToken },
+					},
+				);
+				expect(modernAdapter.linkAccount).toHaveBeenCalledWith(
+					expect.objectContaining({
+						providerId: "firebase",
+						issuer: FIREBASE_ACCOUNT_ISSUER,
+						accountId: "firebase-uid-123",
+						userId: "user-123",
+					}),
+				);
+			});
+
+			it("should reuse the owner when the account is owned", async () => {
+				modernAdapter.findAccountOwnerByKey.mockResolvedValue({
+					kind: "owned",
+					user: mockUser,
+					account: mockAccount,
+				});
+
+				await createOrUpdateUser(
+					createModernCtx() as any,
+					mockDecodedToken,
+					"id-token-abc",
+				);
+
+				expect(modernAdapter.findUserByEmail).not.toHaveBeenCalled();
+				expect(modernAdapter.createUser).not.toHaveBeenCalled();
+				expect(modernAdapter.updateUser).toHaveBeenCalledWith(
+					"user-123",
+					expect.any(Object),
+				);
+				expect(modernAdapter.linkAccount).not.toHaveBeenCalled();
+				expect(modernAdapter.updateAccount).toHaveBeenCalledWith(
+					"account-456",
+					expect.objectContaining({ idToken: "id-token-abc" }),
+				);
+			});
+
+			it("should fall back to email lookup when the account is orphaned", async () => {
+				modernAdapter.findAccountOwnerByKey.mockResolvedValue({
+					kind: "orphaned",
+					account: mockAccount,
+				});
+				modernAdapter.findUserByEmail.mockResolvedValue({
+					user: mockUser,
+					accounts: [],
+				});
+
+				await createOrUpdateUser(
+					createModernCtx() as any,
+					mockDecodedToken,
+					"id-token-abc",
+				);
+
+				expect(modernAdapter.findUserByEmail).toHaveBeenCalledWith(
+					"test@example.com",
+				);
+				expect(modernAdapter.createUser).not.toHaveBeenCalled();
+				expect(modernAdapter.linkAccount).not.toHaveBeenCalled();
+				expect(modernAdapter.updateAccount).toHaveBeenCalledWith(
+					"account-456",
+					expect.any(Object),
+				);
 			});
 		});
 
@@ -354,7 +478,7 @@ describe("firebaseAuthPlugin", () => {
 				exp: Math.floor(Date.now() / 1000) + 3600,
 			};
 
-			it("should pass empty string as email to findOAuthUser", async () => {
+			it("should pass empty string as email to findOAuthUser (better-auth < 1.7)", async () => {
 				const ctx = createMockCtx();
 				await createOrUpdateUser(ctx as any, tokenNoEmail, "id-token");
 
@@ -376,12 +500,18 @@ describe("firebaseAuthPlugin", () => {
 				const ctx = createMockCtx();
 				await createOrUpdateUser(ctx as any, tokenNoEmail, "id-token");
 
-				expect(mockInternalAdapter.createUser).toHaveBeenCalledWith({
-					email: "",
-					name: "No Email User",
-					image: undefined,
-					emailVerified: false,
-				});
+				expect(mockInternalAdapter.createUser).toHaveBeenCalledWith(
+					{
+						email: "",
+						name: "No Email User",
+						image: undefined,
+						emailVerified: false,
+					},
+					{
+						method: "oauth",
+						oauth: { providerId: "firebase", profile: tokenNoEmail },
+					},
+				);
 			});
 		});
 
