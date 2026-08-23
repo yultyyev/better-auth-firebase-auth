@@ -11,6 +11,8 @@ Firebase verifies identity. Better Auth owns the session. No Twilio required for
 
 - **Install:** `pnpm add better-auth-firebase-auth firebase-admin firebase better-auth`
 
+> **Upgrading to Better Auth 1.7 with existing users?** Run the one-time `account.issuer` backfill before your first deploy on 1.7 — see [Upgrading an existing app to Better Auth 1.7](#upgrading-an-existing-app-to-better-auth-17).
+
 ---
 
 ## How it works
