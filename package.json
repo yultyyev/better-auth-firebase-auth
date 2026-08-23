@@ -6,22 +6,21 @@
   "author": "Slava Yultyyev <yultyyev@gmail.com>",
   "license": "MIT",
   "type": "module",
-  "main": "./dist/index.cjs",
+  "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "default": "./dist/index.js"
     },
     "./client": {
       "types": "./dist/firebase-auth-client-plugin.d.ts",
-      "import": "./dist/firebase-auth-client-plugin.js"
+      "default": "./dist/firebase-auth-client-plugin.js"
     },
     "./server": {
       "types": "./dist/firebase-auth-plugin.d.ts",
-      "import": "./dist/firebase-auth-plugin.js"
+      "default": "./dist/firebase-auth-plugin.js"
     }
   },
   "files": [
