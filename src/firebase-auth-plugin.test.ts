@@ -1,6 +1,7 @@
 import { setSessionCookie } from "better-auth/cookies";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+	backfillAccountIssuers,
 	createOrUpdateUser,
 	FIREBASE_ACCOUNT_ISSUER,
 	firebaseAuthPlugin,
@@ -579,6 +580,64 @@ describe("firebaseAuthPlugin", () => {
 		});
 	});
 
+	// ─── backfillAccountIssuers ──────────────────────────────────────────
+
+	describe("backfillAccountIssuers", () => {
+		const adapter = { count: vi.fn(), updateMany: vi.fn() };
+		const tables = { account: { fields: { issuer: { type: "string" } } } };
+		const auth = { $context: Promise.resolve({ adapter, tables }) } as any;
+
+		beforeEach(() => {
+			adapter.count.mockResolvedValue(3);
+			adapter.updateMany.mockResolvedValue(3);
+		});
+
+		it("should stamp the issuer on all firebase rows through the adapter", async () => {
+			const result = await backfillAccountIssuers(auth);
+
+			expect(adapter.count).toHaveBeenCalledWith({
+				model: "account",
+				where: [{ field: "providerId", value: "firebase" }],
+			});
+			expect(adapter.updateMany).toHaveBeenCalledWith({
+				model: "account",
+				where: [{ field: "providerId", value: "firebase" }],
+				update: { issuer: FIREBASE_ACCOUNT_ISSUER },
+			});
+			expect(result).toEqual({ total: 3, updated: 3 });
+		});
+
+		it("should not write on a dry run", async () => {
+			const result = await backfillAccountIssuers(auth, { dryRun: true });
+
+			expect(adapter.updateMany).not.toHaveBeenCalled();
+			expect(result).toEqual({ total: 3, updated: 0 });
+		});
+
+		it("should not write when there are no firebase rows", async () => {
+			adapter.count.mockResolvedValue(0);
+			const result = await backfillAccountIssuers(auth);
+
+			expect(adapter.updateMany).not.toHaveBeenCalled();
+			expect(result).toEqual({ total: 0, updated: 0 });
+		});
+
+		it("should refuse on Better Auth < 1.7 (no account.issuer field)", async () => {
+			const legacyAuth = {
+				$context: Promise.resolve({
+					adapter,
+					tables: { account: { fields: { providerId: {} } } },
+				}),
+			} as any;
+
+			await expect(backfillAccountIssuers(legacyAuth)).rejects.toThrow(
+				/Better Auth >= 1\.7/,
+			);
+			expect(adapter.count).not.toHaveBeenCalled();
+			expect(adapter.updateMany).not.toHaveBeenCalled();
+		});
+	});
+
 	// ─── Hook Matchers ───────────────────────────────────────────────────
 
 	describe("hook matchers", () => {
@@ -1130,5 +1189,61 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		});
 		expect(accounts).toHaveLength(1);
 		expect((accounts[0] as any).userId).toBe(secondUserId);
+	});
+
+	it("should backfill issuer on pre-1.7 rows so the account is found again", async () => {
+		const { client, auth } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({
+						firebaseAdminAuth: mockAdminAuth as any,
+					}),
+				],
+			},
+			{ disableTestUser: true },
+		);
+
+		const res1 = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "token-1" },
+		});
+		const userId = (res1.data as any).user.id;
+
+		const ctx = await (auth as any).$context;
+		if (!ctx.tables.account?.fields?.issuer) {
+			// better-auth < 1.7: the schema has no issuer, so the backfill must
+			// refuse rather than silently write nothing.
+			await expect(backfillAccountIssuers(auth as any)).rejects.toThrow(
+				/Better Auth >= 1\.7/,
+			);
+			return;
+		}
+
+		// Simulate a row written before 1.7 (no meaningful issuer).
+		await ctx.adapter.updateMany({
+			model: "account",
+			where: [{ field: "accountId", value: mockDecodedToken.uid }],
+			update: { issuer: "" },
+		});
+
+		const dry = await backfillAccountIssuers(auth as any, { dryRun: true });
+		expect(dry).toEqual({ total: 1, updated: 0 });
+
+		const result = await backfillAccountIssuers(auth as any);
+		expect(result).toEqual({ total: 1, updated: 1 });
+
+		// The stamped row is found by (issuer, accountId) again: same user, no duplicate.
+		const res2 = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "token-2" },
+		});
+		expect((res2.data as any).user.id).toBe(userId);
+
+		const accounts = await ctx.adapter.findMany({
+			model: "account",
+			where: [{ field: "accountId", value: mockDecodedToken.uid }],
+		});
+		expect(accounts).toHaveLength(1);
+		expect((accounts[0] as any).issuer).toBe(FIREBASE_ACCOUNT_ISSUER);
 	});
 });
