@@ -130,6 +130,13 @@ pnpm lint:fix
    chore: update dependencies to latest versions
    ```
 
+   Only `feat` and `fix` publish a release. `chore`, `docs`, and `test` do not,
+   and are omitted from the changelog. Dependency bumps are `chore(deps)` and
+   stay inert -- the package ships only `dist/` and declares every runtime
+   dependency as a peer, so a bump cannot change what consumers install. Reach
+   for `fix(deps):` or `fix(security):` when a change genuinely needs to be
+   published.
+
 8. Push your branch to your fork
 
 9. Open a pull request against the **main** branch. In your PR description:
