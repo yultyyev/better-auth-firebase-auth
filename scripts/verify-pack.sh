@@ -174,8 +174,8 @@ write_tsconfig() {
 	cat > "$CONSUMER/tsconfig.$1.json" <<EOF
 {
   "compilerOptions": {
-    "module": "$2",
-    "moduleResolution": "$1",
+    "module": "$3",
+    "moduleResolution": "$2",
     "target": "ES2022",
     "lib": ["ES2022", "DOM"],
     "strict": true,
@@ -187,16 +187,38 @@ write_tsconfig() {
 }
 EOF
 }
-write_tsconfig nodenext nodenext
-write_tsconfig bundler preserve
+
+# `module: "preserve"` is what a modern bundler setup uses, but it only exists
+# from TypeScript 5.4. The peer range is ">=5.0.0" and the declarations really do
+# work that far back, so `esnext` carries the bundler check across the whole
+# range and `preserve` is layered on when the compiler under test understands it.
+# Without this, pointing TSC at a 5.0-5.3 compiler fails on the fixture rather
+# than on the package, and the bottom of the declared range cannot be verified.
+TS_VERSION="$(node -p "require('$(dirname "$TSC")/../package.json').version")"
+TS_MAJOR="${TS_VERSION%%.*}"
+TS_REST="${TS_VERSION#*.}"
+TS_MINOR="${TS_REST%%.*}"
+
+CHECKS=("nodenext:nodenext:nodenext" "bundler-esnext:bundler:esnext")
+if (( TS_MAJOR > 5 )) || (( TS_MAJOR == 5 && TS_MINOR >= 4 )); then
+	CHECKS+=("bundler-preserve:bundler:preserve")
+else
+	echo "note: TypeScript $TS_VERSION predates module: \"preserve\"; skipping that check"
+fi
+
+for check in "${CHECKS[@]}"; do
+	IFS=: read -r name resolution mod <<< "$check"
+	write_tsconfig "$name" "$resolution" "$mod"
+done
 
 echo "==> resolving entry points"
 (cd "$CONSUMER" && node ./esm-smoke.mjs && node ./cjs-smoke.cjs)
 
-echo "==> type-checking a consumer"
-for resolution in nodenext bundler; do
-	(cd "$CONSUMER" && node "$TSC" -p "tsconfig.$resolution.json")
-	echo "    ok  moduleResolution: \"$resolution\""
+echo "==> type-checking a consumer (TypeScript $TS_VERSION)"
+for check in "${CHECKS[@]}"; do
+	IFS=: read -r name resolution mod <<< "$check"
+	(cd "$CONSUMER" && node "$TSC" -p "tsconfig.$name.json")
+	echo "    ok  moduleResolution: \"$resolution\", module: \"$mod\""
 done
 
 echo "==> packaging smoke test passed"
