@@ -7,7 +7,7 @@ import {
 import { setSessionCookie } from "better-auth/cookies";
 import type { FirebaseOptions } from "firebase/app";
 import { getAuth } from "firebase-admin/auth";
-import type { AuthResponse, FirebaseAuthPluginOptions } from "./types";
+import type { AuthResponse, FirebaseAuthPluginOptions } from "./types.js";
 
 type DecodedToken = {
 	uid: string;
