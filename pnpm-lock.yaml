@@ -1882,7 +1882,7 @@ packages:
       better-auth: '>=1.5.0'
       firebase: '>=9'
       firebase-admin: '>=13'
-      typescript: ^5.0.0
+      typescript: '>=5.0.0'
 
   better-auth@1.7.1:
     resolution: {integrity: sha512-g8WlTQijxXWJjPVZfFu1+EJg9cwwHrKDmIkcYMzx8CzYA+tDxl6NI7qQbKkbgw5UtHILsT5VH+RMzFzwnVJqAg==}
