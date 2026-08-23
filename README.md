@@ -351,26 +351,34 @@ One build of the plugin supports every Better Auth release since 1.5. The plugin
 Better Auth 1.7 adds a required `issuer` column to the `account` table and looks accounts up by `(issuer, accountId)` — there is no fallback to `providerId`. `npx auth migrate` refuses to add a `NOT NULL` column to a populated table, so every existing install needs a one-time backfill. This is part of the [Better Auth 1.7 upgrade guide](https://better-auth.com/docs/guides/1-7-upgrade-guide#account-identity-is-scoped-by-issuer); the plugin-specific part is the value to use for Firebase rows:
 
 1. Add `issuer` to `account` as a **nullable** column.
-2. Backfill Firebase-linked rows (and any other providers you use, per the upgrade guide) — either way works:
+2. Backfill Firebase-linked rows (and any other providers you use, per the upgrade guide) — three equivalent ways, all idempotent, all repairing rows a MySQL `auth migrate` corrupted to an empty string:
 
-   **No SQL — through your configured adapter** (any database Better Auth supports, honors custom model/field names). Run once from a one-off script, seed file, or admin route:
+   **CLI** — like `npx auth migrate`, it finds and imports the file exporting your `betterAuth(...)` instance and runs the backfill through its database adapter (the plugin holds no database credentials of its own):
+
+   ```bash
+   npx better-auth-firebase-auth backfill-account-issuers            # dry run: prints the report, writes nothing
+   npx better-auth-firebase-auth backfill-account-issuers --apply    # writes, with authentication writes paused
+   ```
+
+   Pass `--config path/to/auth.ts` if your config lives somewhere unusual. The config is imported with `jiti` when your project has it (Better Auth's own CLI ships it), otherwise with Node's native TypeScript support (Node ≥ 22.18); `--help` lists everything.
+
+   **Programmatically** — same engine, from a one-off script, seed file, or admin route:
 
    ```ts
    import { auth } from "./lib/auth"; // your betterAuth(...) instance
    import { backfillAccountIssuers } from "better-auth-firebase-auth/server";
 
-   const { total, updated } = await backfillAccountIssuers(auth);
-   console.log(`stamped ${updated}/${total} firebase account rows`);
+   const { total, missing, updated } = await backfillAccountIssuers(auth);
    // pass { dryRun: true } to count without writing
    ```
 
-   **Or plain SQL**, run in the database that backs Better Auth (`psql`, `mysql`, `sqlite3`, or a migration file in your ORM — the plugin has no database access of its own, so there is no `npx` command):
+   **Or plain SQL**, run in the database that backs Better Auth (`psql`, `mysql`, `sqlite3`, or a migration file in your ORM):
 
    ```sql
    UPDATE account SET issuer = 'local:oauth:firebase' WHERE "providerId" = 'firebase';
    ```
 
-   The statement is Postgres-flavored — camelCase identifiers need the double quotes. MySQL uses backticks (`` `providerId` ``), and if you map Better Auth to snake_case the column is `provider_id`. Both forms are idempotent, and both repair rows a MySQL `auth migrate` corrupted to an empty string.
+   The statement is Postgres-flavored — camelCase identifiers need the double quotes. MySQL uses backticks (`` `providerId` ``), and if you map Better Auth to snake_case the column is `provider_id`.
 
 3. Make `issuer` `NOT NULL` and add the unique `(issuer, accountId)` index (`npx auth migrate` / `npx auth generate` can do this step once no row is empty).
 

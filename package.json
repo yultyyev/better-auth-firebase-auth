@@ -6,6 +6,9 @@
   "author": "Slava Yultyyev <yultyyev@gmail.com>",
   "license": "MIT",
   "type": "module",
+  "bin": {
+    "better-auth-firebase-auth": "./dist/cli.js"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -79,6 +82,7 @@
     "@semantic-release/github": "^12.0.6",
     "@semantic-release/npm": "^13.1.5",
     "@semantic-release/release-notes-generator": "^14.1.0",
+    "@types/node": "^24.13.3",
     "better-auth": "^1.7.1",
     "firebase": "^12.12.0",
     "firebase-admin": "^14.3.0",

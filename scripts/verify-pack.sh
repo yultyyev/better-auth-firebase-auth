@@ -221,4 +221,34 @@ for check in "${CHECKS[@]}"; do
 	echo "    ok  moduleResolution: \"$resolution\", module: \"$mod\""
 done
 
+echo "==> running the installed bin"
+BIN="$CONSUMER/node_modules/.bin/better-auth-firebase-auth"
+if [[ ! -x "$BIN" ]]; then
+	echo "error: installed package exposes no better-auth-firebase-auth bin" >&2
+	exit 1
+fi
+"$BIN" --help >/dev/null
+echo "    ok  --help"
+
+# Functional dry run against a throwaway Better Auth instance (memory adapter):
+# proves config discovery, instance detection, and the adapter round trip from
+# the packed artifact.
+cat > "$CONSUMER/auth.mjs" <<'AUTHEOF'
+import { betterAuth } from "better-auth";
+import { memoryAdapter } from "better-auth/adapters/memory";
+export const auth = betterAuth({
+	database: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
+	secret: "verify-pack-secret-verify-pack-secret",
+	baseURL: "http://localhost:3000",
+	logger: { level: "error" },
+});
+AUTHEOF
+BACKFILL_OUT="$(cd "$CONSUMER" && "$BIN" backfill-account-issuers --config auth.mjs)"
+if ! grep -q "0 Firebase account row(s)" <<<"$BACKFILL_OUT"; then
+	echo "error: unexpected backfill dry-run output:" >&2
+	echo "$BACKFILL_OUT" >&2
+	exit 1
+fi
+echo "    ok  backfill-account-issuers dry run"
+
 echo "==> packaging smoke test passed"
