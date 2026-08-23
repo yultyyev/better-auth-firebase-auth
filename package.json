@@ -68,7 +68,7 @@
     "better-auth": ">=1.5.0",
     "firebase": ">=9",
     "firebase-admin": ">=13",
-    "typescript": "^5.0.0"
+    "typescript": ">=5.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
