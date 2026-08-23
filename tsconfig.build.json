@@ -4,9 +4,9 @@
     "outDir": "dist",
     "declaration": true,
     "emitDeclarationOnly": false,
-    "module": "ESNext",
+    "module": "NodeNext",
     "target": "ES2020",
-    "moduleResolution": "Bundler",
+    "moduleResolution": "NodeNext",
     "rootDir": "src",
     "noEmit": false
   },

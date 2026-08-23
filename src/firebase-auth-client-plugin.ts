@@ -1,5 +1,5 @@
 import type { BetterAuthClientPlugin } from "better-auth/client";
-import type { firebaseAuthPlugin } from "./firebase-auth-plugin";
+import type { firebaseAuthPlugin } from "./firebase-auth-plugin.js";
 import type {
 	AuthResponse,
 	ConfirmPasswordResetRequest,
@@ -10,7 +10,7 @@ import type {
 	SignInWithPhoneRequest,
 	VerifyPasswordResetCodeRequest,
 	VerifyPasswordResetCodeResponse,
-} from "./types";
+} from "./types.js";
 
 type FirebaseAuthPlugin = typeof firebaseAuthPlugin;
 

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	extractOobCodeFromUrl,
 	firebaseAuthClientPlugin,
-} from "./firebase-auth-client-plugin";
+} from "./firebase-auth-client-plugin.js";
 
 describe("firebaseAuthClientPlugin", () => {
 	const mockFetch = vi.fn();
