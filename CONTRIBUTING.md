@@ -115,7 +115,21 @@ pnpm lint:fix
    pnpm lint
    ```
 
-7. Commit your changes with a descriptive message following Conventional Commits format:
+7. If you touched packaging -- `package.json` (`exports`, `main`, `types`),
+   `tsconfig.build.json`, or the files behind an entry point -- verify the
+   published artifact:
+   ```bash
+   pnpm verify:pack
+   ```
+
+   The unit tests import from `src/`, so they cannot catch a broken `exports`
+   map or an unresolvable specifier in `dist/`. This packs the tarball,
+   installs it into a throwaway consumer next to the peer deps, and checks
+   that every entry point resolves from ESM and CJS and still carries its
+   types under both `nodenext` and `bundler` module resolution. CI runs it on
+   every pull request.
+
+8. Commit your changes with a descriptive message following Conventional Commits format:
    ```bash
    # For new features
    feat(firebase-auth): add phone number authentication support
@@ -137,14 +151,14 @@ pnpm lint:fix
    for `fix(deps):` or `fix(security):` when a change genuinely needs to be
    published.
 
-8. Push your branch to your fork
+9. Push your branch to your fork
 
-9. Open a pull request against the **main** branch. In your PR description:
-   - Clearly describe what changes you made and why
-   - Include any relevant context or background
-   - List any breaking changes or deprecations
-   - Reference related issues or discussions
-   - Include examples if adding new features
+10. Open a pull request against the **main** branch. In your PR description:
+    - Clearly describe what changes you made and why
+    - Include any relevant context or background
+    - List any breaking changes or deprecations
+    - Reference related issues or discussions
+    - Include examples if adding new features
 
 ## Testing
 

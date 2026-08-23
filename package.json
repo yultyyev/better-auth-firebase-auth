@@ -35,6 +35,7 @@
     "lint": "biome check --formatter-enabled=false",
     "lint:fix": "biome check --write",
     "lint:fix:unsafe": "biome check --write --unsafe",
+    "verify:pack": "./scripts/verify-pack.sh",
     "prepublishOnly": "pnpm run build"
   },
   "engines": {
