@@ -219,6 +219,20 @@ Follow Conventional Commits format:
 - `chore: description` - Build/tooling changes
 - `test(server): description` - Test changes
 
+### What publishes a release
+
+`semantic-release` publishes from `feat` (minor) and `fix` (patch) commits.
+`chore`, `docs`, and `test` never publish, and never appear in the changelog.
+
+Dependency bumps land as `chore(deps)` / `chore(deps-dev)` and are inert on
+purpose: the package ships only `dist/` and declares every runtime dependency
+as a peer, so a bump cannot change the published artifact. Merge Dependabot
+PRs as-is.
+
+Use `fix(deps):` or `fix(security):` when a change *should* reach consumers --
+a `peerDependencies` range change, or a rebuild worth publishing. Those cut a
+patch and show up in the changelog under Bug Fixes.
+
 ## References
 
 - [Better Auth Plugin Guide](https://www.better-auth.com/docs/guides/your-first-plugin)
