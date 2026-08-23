@@ -76,8 +76,12 @@ cat > "$CONSUMER/package.json" <<EOF
 }
 EOF
 
+# pnpm, not npm: the store is already warm from the install earlier in the job,
+# so the peers come from hard links instead of a ~270MB download. Its default
+# isolated layout is also stricter than npm's hoisting -- a dependency the
+# package failed to declare fails here rather than resolving by accident.
 echo "==> installing the tarball next to ${PEERS[*]}"
-(cd "$CONSUMER" && npm install --no-audit --no-fund --ignore-scripts --loglevel=error "$TARBALL")
+(cd "$CONSUMER" && pnpm add --ignore-workspace --ignore-scripts --reporter=silent "$TARBALL")
 
 cat > "$CONSUMER/esm-smoke.mjs" <<'EOF'
 const entries = [
