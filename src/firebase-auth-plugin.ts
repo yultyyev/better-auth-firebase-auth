@@ -612,3 +612,73 @@ export const firebaseAuthPlugin = (
 		...(hooks.before && hooks.before.length > 0 && { hooks }),
 	};
 };
+
+export interface BackfillAccountIssuersResult {
+	/** Firebase account rows matched by `providerId = "firebase"`. */
+	total: number;
+	/** Rows written (0 on a dry run). The write is idempotent. */
+	updated: number;
+}
+
+/**
+ * Stamp `issuer` on Firebase account rows created before Better Auth 1.7.
+ *
+ * Better Auth 1.7 looks accounts up by `(issuer, accountId)`; rows written by
+ * earlier versions have no `issuer`, so existing users' Firebase links are not
+ * found until it is set. This runs the backfill through the database adapter
+ * configured on your Better Auth instance, so it works on every database
+ * Better Auth supports and honors custom model/field names — no SQL required:
+ *
+ * ```ts
+ * import { auth } from "./lib/auth";
+ * import { backfillAccountIssuers } from "better-auth-firebase-auth/server";
+ *
+ * const { total, updated } = await backfillAccountIssuers(auth);
+ * ```
+ *
+ * Run it after upgrading better-auth to 1.7 and after `npx auth migrate` (or
+ * your ORM) added the nullable `issuer` column, and before making the column
+ * NOT NULL. On Better Auth < 1.7 it throws instead of silently writing
+ * nothing. Idempotent: rows already
+ * stamped are written with the same value, and rows corrupted to an empty
+ * string (the MySQL migration pitfall) are repaired.
+ */
+export const backfillAccountIssuers = async (
+	auth: {
+		$context: Promise<
+			Pick<GenericEndpointContext["context"], "adapter" | "tables">
+		>;
+	},
+	options?: { dryRun?: boolean },
+): Promise<BackfillAccountIssuersResult> => {
+	const { adapter, tables } = await auth.$context;
+
+	// On Better Auth < 1.7 the account model has no issuer field, so the
+	// adapter would silently drop the write and "succeed" without doing
+	// anything. Refuse instead of lying.
+	if (!tables.account?.fields?.issuer) {
+		throw new Error(
+			"backfillAccountIssuers requires Better Auth >= 1.7: the configured " +
+				"better-auth version has no account.issuer field. Upgrade " +
+				"better-auth (and add the nullable issuer column via `npx auth " +
+				"migrate` or your ORM) first.",
+		);
+	}
+
+	const where = [{ field: "providerId", value: FIREBASE_PROVIDER_ID }];
+
+	const total = await adapter.count({ model: "account", where });
+	if (options?.dryRun) {
+		return { total, updated: 0 };
+	}
+
+	const updated =
+		total === 0
+			? 0
+			: await adapter.updateMany({
+					model: "account",
+					where,
+					update: { issuer: FIREBASE_ACCOUNT_ISSUER },
+				});
+	return { total, updated };
+};
