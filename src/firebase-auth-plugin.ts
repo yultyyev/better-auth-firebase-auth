@@ -1,4 +1,9 @@
-import type { BetterAuthPlugin, GenericEndpointContext } from "better-auth";
+import type {
+	Account,
+	BetterAuthPlugin,
+	GenericEndpointContext,
+	User,
+} from "better-auth";
 import {
 	APIError,
 	createAuthEndpoint,
@@ -8,6 +13,21 @@ import { setSessionCookie } from "better-auth/cookies";
 import type { FirebaseOptions } from "firebase/app";
 import { getAuth } from "firebase-admin/auth";
 import type { AuthResponse, FirebaseAuthPluginOptions } from "./types.js";
+
+/**
+ * Issuer stored on Firebase-linked `account` rows.
+ *
+ * Better Auth >= 1.7 identifies accounts by the `(issuer, accountId)` pair and
+ * requires `issuer` on every row. Firebase is not a configured OIDC provider in
+ * Better Auth, so the plugin uses the synthetic issuer Better Auth derives for
+ * OAuth providers without one (`createOAuthAccountIssuer("firebase")`).
+ *
+ * When upgrading an existing database to Better Auth 1.7, backfill this value
+ * on rows where `providerId = 'firebase'` before making `issuer` NOT NULL.
+ */
+export const FIREBASE_ACCOUNT_ISSUER = "local:oauth:firebase";
+
+const FIREBASE_PROVIDER_ID = "firebase";
 
 type DecodedToken = {
 	uid: string;
@@ -19,6 +39,55 @@ type DecodedToken = {
 	exp?: number;
 };
 
+type InternalAdapter = GenericEndpointContext["context"]["internalAdapter"];
+
+/** `internalAdapter` surface of Better Auth 1.5 – 1.6 (removed in 1.7). */
+type LegacyInternalAdapter = {
+	findOAuthUser: (
+		email: string,
+		accountId: string,
+		providerId: string,
+	) => Promise<{
+		user: User;
+		linkedAccount: Pick<Account, "id"> | null;
+	} | null>;
+};
+
+/**
+ * Find the Better Auth user linked to a Firebase UID.
+ *
+ * Better Auth >= 1.7 keys accounts by `(issuer, accountId)` and removed
+ * `findOAuthUser`; 1.5 – 1.6 key them by `(providerId, accountId)`. Feature
+ * detection keeps a single build working across both lines.
+ */
+const findFirebaseAccountOwner = async (
+	internalAdapter: InternalAdapter,
+	decodedToken: DecodedToken,
+): Promise<{ user: User | null; account: Pick<Account, "id"> | null }> => {
+	if ("findAccountOwnerByKey" in internalAdapter) {
+		const owner = await internalAdapter.findAccountOwnerByKey({
+			issuer: FIREBASE_ACCOUNT_ISSUER,
+			accountId: decodedToken.uid,
+		});
+		return {
+			user: owner?.kind === "owned" ? owner.user : null,
+			account: owner?.account ?? null,
+		};
+	}
+
+	const legacy = await (
+		internalAdapter as unknown as LegacyInternalAdapter
+	).findOAuthUser(
+		decodedToken.email || "",
+		decodedToken.uid,
+		FIREBASE_PROVIDER_ID,
+	);
+	return {
+		user: legacy?.user ?? null,
+		account: legacy?.linkedAccount ?? null,
+	};
+};
+
 export const createOrUpdateUser = async (
 	ctx: GenericEndpointContext,
 	decodedToken: DecodedToken,
@@ -27,15 +96,9 @@ export const createOrUpdateUser = async (
 ): Promise<AuthResponse> => {
 	const { internalAdapter } = ctx.context;
 
-	let user = null;
-	const oauthUser = await internalAdapter.findOAuthUser(
-		decodedToken.email || "",
-		decodedToken.uid,
-		"firebase",
-	);
-
-	user = oauthUser?.user ?? null;
-	const existingAccount = oauthUser?.linkedAccount ?? null;
+	const { user: linkedUser, account: existingAccount } =
+		await findFirebaseAccountOwner(internalAdapter, decodedToken);
+	let user = linkedUser;
 
 	if (!user && decodedToken.email) {
 		const found = await internalAdapter.findUserByEmail(decodedToken.email);
@@ -43,12 +106,20 @@ export const createOrUpdateUser = async (
 	}
 
 	if (!user) {
-		user = await internalAdapter.createUser({
-			email: decodedToken.email || "",
-			name: decodedToken.name || "",
-			image: decodedToken.picture || undefined,
-			emailVerified: decodedToken.email_verified || false,
-		});
+		user = await internalAdapter.createUser(
+			{
+				email: decodedToken.email || "",
+				name: decodedToken.name || "",
+				image: decodedToken.picture || undefined,
+				emailVerified: decodedToken.email_verified || false,
+			},
+			// Provisioning source for `user.validateUserInfo` (Better Auth >= 1.7);
+			// ignored by older versions.
+			{
+				method: "oauth",
+				oauth: { providerId: FIREBASE_PROVIDER_ID, profile: decodedToken },
+			},
+		);
 	} else {
 		user = await internalAdapter.updateUser(user.id, {
 			name: decodedToken.name || user.name,
@@ -59,7 +130,8 @@ export const createOrUpdateUser = async (
 
 	if (!existingAccount) {
 		await internalAdapter.linkAccount({
-			providerId: "firebase",
+			providerId: FIREBASE_PROVIDER_ID,
+			issuer: FIREBASE_ACCOUNT_ISSUER,
 			accountId: decodedToken.uid,
 			userId: user.id,
 			idToken,
