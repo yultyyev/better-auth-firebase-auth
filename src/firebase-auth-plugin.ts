@@ -195,6 +195,7 @@ export const firebaseAuthPlugin = (
 		firebaseAdminAuth,
 		firebaseConfig,
 		sessionExpiresInDays = 7,
+		migrationChecks = true,
 		passwordResetUrl,
 		getPhoneUserFallbackEmail = ({ uid }) => `${uid}@firebase.local`,
 	} = options;
@@ -608,9 +609,62 @@ export const firebaseAuthPlugin = (
 
 	return {
 		id: "firebase-auth",
+		init: (ctx) => {
+			if (migrationChecks) {
+				// Fire and forget: never block or fail startup over a diagnostic.
+				void warnIfIssuerBackfillNeeded(ctx);
+			}
+		},
 		...(Object.keys(endpoints).length > 0 && { endpoints }),
 		...(hooks.before && hooks.before.length > 0 && { hooks }),
 	};
+};
+
+/**
+ * Log one startup warning when Better Auth 1.7 expects `account.issuer` but
+ * Firebase rows written by earlier versions still lack it — the symptom would
+ * otherwise be existing users silently losing their account link on sign-in.
+ * Two equality-only `count` reads; skipped on Better Auth < 1.7.
+ */
+const warnIfIssuerBackfillNeeded = async (ctx: {
+	tables?: { account?: { fields?: Record<string, unknown> } };
+	adapter: Pick<GenericEndpointContext["context"]["adapter"], "count">;
+	logger?: { warn: (message: string) => void };
+}): Promise<void> => {
+	try {
+		if (!ctx.tables?.account?.fields?.issuer) {
+			return; // Better Auth < 1.7 — accounts are not keyed by issuer yet.
+		}
+		const providerWhere = [
+			{ field: "providerId", value: FIREBASE_PROVIDER_ID },
+		];
+		const total = await ctx.adapter.count({
+			model: "account",
+			where: providerWhere,
+		});
+		if (total === 0) {
+			return;
+		}
+		const stamped = await ctx.adapter.count({
+			model: "account",
+			where: [
+				...providerWhere,
+				{ field: "issuer", value: FIREBASE_ACCOUNT_ISSUER },
+			],
+		});
+		const missing = total - stamped;
+		if (missing > 0) {
+			ctx.logger?.warn(
+				`[better-auth-firebase-auth] ${missing} of ${total} Firebase account rows have no issuer. ` +
+					`Better Auth 1.7 looks accounts up by (issuer, accountId), so those users' Firebase links are not found until backfilled. ` +
+					`Run: await backfillAccountIssuers(auth) from "better-auth-firebase-auth/server" — ` +
+					`or SQL: UPDATE account SET issuer = '${FIREBASE_ACCOUNT_ISSUER}' WHERE providerId = '${FIREBASE_PROVIDER_ID}'. ` +
+					`Set migrationChecks: false on firebaseAuthPlugin() to silence this check.`,
+			);
+		}
+	} catch {
+		// Diagnostics must never break auth startup.
+	}
 };
 
 export interface BackfillAccountIssuersResult {

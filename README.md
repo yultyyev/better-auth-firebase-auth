@@ -312,6 +312,7 @@ firebaseAuthPlugin({
 | `sessionExpiresInDays` | `number` | `7` | Better Auth session lifetime. |
 | `passwordResetUrl` | `string` | — | Custom URL Firebase appends the reset code to. |
 | `getPhoneUserFallbackEmail` | `({ uid, phoneNumber }) => string` | `${uid}@firebase.local` | Generate a stable synthetic email for phone-only users. |
+| `migrationChecks` | `boolean` | `true` | Warn at startup while Firebase account rows still lack the Better Auth 1.7 `issuer` (two `count` reads per process; skipped on Better Auth < 1.7). |
 
 ---
 
@@ -375,7 +376,7 @@ Better Auth 1.7 adds a required `issuer` column to the `account` table and looks
 
 The issuer value is exported as `FIREBASE_ACCOUNT_ISSUER` from `better-auth-firebase-auth/server` for use in migration scripts. New rows written on Better Auth 1.7 already carry it.
 
-If the backfill is skipped, sign-in still works: the plugin falls back to matching by email and links a fresh account row — but the old row is left orphaned and, on MySQL, `auth migrate` may have silently filled `issuer` with an empty string (see the upgrade guide's corruption check).
+**If you forget:** the plugin checks on startup and logs one `[better-auth-firebase-auth]` warning with the exact command whenever Better Auth expects `issuer` but Firebase account rows lack it (two `count` reads per process; `migrationChecks: false` disables it). Sign-in itself keeps working — the plugin falls back to matching by email and re-links — but until the backfill runs the old row stays orphaned and, on MySQL, `auth migrate` may have silently filled `issuer` with an empty string (see the upgrade guide's corruption check).
 
 ---
 

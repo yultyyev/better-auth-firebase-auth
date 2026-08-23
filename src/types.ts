@@ -8,6 +8,15 @@ export interface FirebaseAuthPluginOptions {
 	firebaseAdminAuth?: Auth;
 	firebaseConfig?: FirebaseOptions;
 	sessionExpiresInDays?: number;
+	/**
+	 * On startup, count Firebase account rows that still lack the Better Auth
+	 * 1.7 `issuer` value and log one warning with the exact remediation when
+	 * any are found (two equality-only `count` reads per process; skipped
+	 * entirely on Better Auth < 1.7). Set to `false` to disable.
+	 *
+	 * @default true
+	 */
+	migrationChecks?: boolean;
 	passwordResetUrl?: string;
 	/**
 	 * Generate a stable synthetic email for phone-only Firebase users who have
