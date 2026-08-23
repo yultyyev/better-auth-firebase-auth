@@ -638,6 +638,93 @@ describe("firebaseAuthPlugin", () => {
 		});
 	});
 
+	// ─── migrationChecks startup warning ─────────────────────────────────
+
+	describe("migrationChecks startup warning", () => {
+		const makeCtx = (
+			counts: { total: number; stamped: number },
+			hasIssuerField = true,
+		) => {
+			const count = vi
+				.fn()
+				.mockResolvedValueOnce(counts.total)
+				.mockResolvedValueOnce(counts.stamped);
+			return {
+				ctx: {
+					tables: {
+						account: {
+							fields: hasIssuerField ? { issuer: {} } : { providerId: {} },
+						},
+					},
+					adapter: { count },
+					logger: { warn: vi.fn() },
+				},
+				count,
+			};
+		};
+
+		const flush = () => new Promise((r) => setTimeout(r, 0));
+
+		it("should warn with the remediation when firebase rows lack issuer", async () => {
+			const { ctx } = makeCtx({ total: 5, stamped: 2 });
+			const plugin = firebaseAuthPlugin({
+				firebaseAdminAuth: mockAdminAuth as any,
+			});
+			plugin.init?.(ctx as any);
+			await flush();
+
+			expect(ctx.logger.warn).toHaveBeenCalledOnce();
+			const message = ctx.logger.warn.mock.calls[0][0] as string;
+			expect(message).toContain("3 of 5");
+			expect(message).toContain("backfillAccountIssuers");
+			expect(message).toContain(FIREBASE_ACCOUNT_ISSUER);
+			expect(message).toContain("migrationChecks: false");
+		});
+
+		it("should stay silent when every row is stamped", async () => {
+			const { ctx } = makeCtx({ total: 5, stamped: 5 });
+			firebaseAuthPlugin({ firebaseAdminAuth: mockAdminAuth as any }).init?.(
+				ctx as any,
+			);
+			await flush();
+			expect(ctx.logger.warn).not.toHaveBeenCalled();
+		});
+
+		it("should stay silent and read nothing on Better Auth < 1.7", async () => {
+			const { ctx, count } = makeCtx({ total: 5, stamped: 0 }, false);
+			firebaseAuthPlugin({ firebaseAdminAuth: mockAdminAuth as any }).init?.(
+				ctx as any,
+			);
+			await flush();
+			expect(count).not.toHaveBeenCalled();
+			expect(ctx.logger.warn).not.toHaveBeenCalled();
+		});
+
+		it("should not run at all when migrationChecks is false", async () => {
+			const { ctx, count } = makeCtx({ total: 5, stamped: 0 });
+			firebaseAuthPlugin({
+				firebaseAdminAuth: mockAdminAuth as any,
+				migrationChecks: false,
+			}).init?.(ctx as any);
+			await flush();
+			expect(count).not.toHaveBeenCalled();
+			expect(ctx.logger.warn).not.toHaveBeenCalled();
+		});
+
+		it("should never throw when the adapter fails", async () => {
+			const ctx = {
+				tables: { account: { fields: { issuer: {} } } },
+				adapter: { count: vi.fn().mockRejectedValue(new Error("boom")) },
+				logger: { warn: vi.fn() },
+			};
+			firebaseAuthPlugin({ firebaseAdminAuth: mockAdminAuth as any }).init?.(
+				ctx as any,
+			);
+			await flush();
+			expect(ctx.logger.warn).not.toHaveBeenCalled();
+		});
+	});
+
 	// ─── Hook Matchers ───────────────────────────────────────────────────
 
 	describe("hook matchers", () => {
