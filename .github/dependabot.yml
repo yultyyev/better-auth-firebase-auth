@@ -11,6 +11,11 @@ updates:
         dependency-type: development
         patterns:
           - "*"
+    ignore:
+      # @types/node follows CI's Node major (pinned by the pnpm-workspace.yaml
+      # override); move it together with node-version in ci.yml.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: chore
       include: scope
