@@ -22,6 +22,10 @@ Stamps issuer = "local:oauth:firebase" on account rows with
 providerId = "firebase" that were written before Better Auth 1.7,
 through the database adapter of your Better Auth instance.
 
+Only Better Auth 1.7.0 – 1.7.2 need this. On 1.5 – 1.6 and 1.7.3+,
+which key accounts by (providerId, accountId), it reports that no
+backfill is needed and writes nothing.
+
 Dry run by default: prints the report and writes nothing.
 
 Options:
@@ -229,6 +233,16 @@ export const run = async (argv: string[]): Promise<void> => {
 	}
 
 	const report = await backfillAccountIssuers(auth, { dryRun: true });
+	if (!report.issuerRequired) {
+		console.log(
+			`==> ${report.total} Firebase account row(s); this Better Auth version keys accounts by (providerId, accountId), so no issuer backfill is needed.`,
+		);
+		console.log(
+			"If this database ran Better Auth 1.7.0 – 1.7.2, relax its account.issuer column instead: " +
+				"https://better-auth.com/docs/guides/1-7-upgrade-guide#account-identity-keeps-the-provider-key",
+		);
+		process.exit(0);
+	}
 	console.log(
 		`==> ${report.total} Firebase account row(s); ${report.missing} missing issuer`,
 	);

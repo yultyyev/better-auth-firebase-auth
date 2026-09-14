@@ -29,6 +29,15 @@ export const FIREBASE_ACCOUNT_ISSUER = "local:oauth:firebase";
 
 const FIREBASE_PROVIDER_ID = "firebase";
 
+/**
+ * Whether the configured Better Auth version keys accounts by
+ * `(issuer, accountId)`. Only 1.7.0 – 1.7.2 declare `account.issuer`;
+ * 1.5 – 1.6 and 1.7.3+ key accounts by `(providerId, accountId)`.
+ */
+const accountsKeyedByIssuer = (tables?: {
+	account?: { fields?: Record<string, unknown> };
+}): boolean => Boolean(tables?.account?.fields?.issuer);
+
 type DecodedToken = {
 	uid: string;
 	email?: string | null;
@@ -675,16 +684,24 @@ export interface BackfillAccountIssuersResult {
 	missing: number;
 	/** Rows written (0 on a dry run). The write is idempotent. */
 	updated: number;
+	/**
+	 * Whether the configured Better Auth version requires `account.issuer`
+	 * (1.7.0 – 1.7.2). `false` on 1.5 – 1.6 and 1.7.3+, which key accounts by
+	 * `(providerId, accountId)`: no backfill is needed, so `missing` and
+	 * `updated` are 0 and nothing is written.
+	 */
+	issuerRequired: boolean;
 }
 
 /**
  * Stamp `issuer` on Firebase account rows created before Better Auth 1.7.
  *
- * Better Auth 1.7 looks accounts up by `(issuer, accountId)`; rows written by
- * earlier versions have no `issuer`, so existing users' Firebase links are not
- * found until it is set. This runs the backfill through the database adapter
- * configured on your Better Auth instance, so it works on every database
- * Better Auth supports and honors custom model/field names — no SQL required:
+ * Better Auth 1.7.0 – 1.7.2 look accounts up by `(issuer, accountId)`; rows
+ * written by earlier versions have no `issuer`, so existing users' Firebase
+ * links are not found until it is set. This runs the backfill through the
+ * database adapter configured on your Better Auth instance, so it works on
+ * every database Better Auth supports and honors custom model/field names —
+ * no SQL required:
  *
  * ```ts
  * import { auth } from "./lib/auth";
@@ -693,10 +710,11 @@ export interface BackfillAccountIssuersResult {
  * const { total, updated } = await backfillAccountIssuers(auth);
  * ```
  *
- * Run it after upgrading better-auth to 1.7 and after `npx auth migrate` (or
- * your ORM) added the nullable `issuer` column, and before making the column
- * NOT NULL. On Better Auth < 1.7 it throws instead of silently writing
- * nothing. Idempotent: rows already
+ * Run it after upgrading better-auth to 1.7.0 – 1.7.2 and after `npx auth
+ * migrate` (or your ORM) added the nullable `issuer` column, and before making
+ * the column NOT NULL. Better Auth 1.5 – 1.6 and 1.7.3+ key accounts by
+ * `(providerId, accountId)` and need no backfill: there it writes nothing and
+ * returns `issuerRequired: false`. Idempotent: rows already
  * stamped are written with the same value, and rows corrupted to an empty
  * string (the MySQL migration pitfall) are repaired.
  */
@@ -710,21 +728,16 @@ export const backfillAccountIssuers = async (
 ): Promise<BackfillAccountIssuersResult> => {
 	const { adapter, tables } = await auth.$context;
 
-	// On Better Auth < 1.7 the account model has no issuer field, so the
-	// adapter would silently drop the write and "succeed" without doing
-	// anything. Refuse instead of lying.
-	if (!tables.account?.fields?.issuer) {
-		throw new Error(
-			"backfillAccountIssuers requires Better Auth >= 1.7: the configured " +
-				"better-auth version has no account.issuer field. Upgrade " +
-				"better-auth (and add the nullable issuer column via `npx auth " +
-				"migrate` or your ORM) first.",
-		);
-	}
-
 	const where = [{ field: "providerId", value: FIREBASE_PROVIDER_ID }];
 
 	const total = await adapter.count({ model: "account", where });
+
+	// Without the field the adapter would drop the write anyway, and no row
+	// needs an issuer: accounts are keyed by (providerId, accountId).
+	if (!accountsKeyedByIssuer(tables)) {
+		return { total, missing: 0, updated: 0, issuerRequired: false };
+	}
+
 	const stamped =
 		total === 0
 			? 0
@@ -737,7 +750,7 @@ export const backfillAccountIssuers = async (
 				});
 	const missing = total - stamped;
 	if (options?.dryRun) {
-		return { total, missing, updated: 0 };
+		return { total, missing, updated: 0, issuerRequired: true };
 	}
 
 	const updated =
@@ -748,5 +761,5 @@ export const backfillAccountIssuers = async (
 					where,
 					update: { issuer: FIREBASE_ACCOUNT_ISSUER },
 				});
-	return { total, missing, updated };
+	return { total, missing, updated, issuerRequired: true };
 };

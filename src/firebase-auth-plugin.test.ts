@@ -612,14 +612,24 @@ describe("firebaseAuthPlugin", () => {
 				where: [{ field: "providerId", value: "firebase" }],
 				update: { issuer: FIREBASE_ACCOUNT_ISSUER },
 			});
-			expect(result).toEqual({ total: 3, missing: 2, updated: 3 });
+			expect(result).toEqual({
+				total: 3,
+				missing: 2,
+				updated: 3,
+				issuerRequired: true,
+			});
 		});
 
 		it("should not write on a dry run", async () => {
 			const result = await backfillAccountIssuers(auth, { dryRun: true });
 
 			expect(adapter.updateMany).not.toHaveBeenCalled();
-			expect(result).toEqual({ total: 3, missing: 2, updated: 0 });
+			expect(result).toEqual({
+				total: 3,
+				missing: 2,
+				updated: 0,
+				issuerRequired: true,
+			});
 		});
 
 		it("should not write when there are no firebase rows", async () => {
@@ -627,21 +637,32 @@ describe("firebaseAuthPlugin", () => {
 			const result = await backfillAccountIssuers(auth);
 
 			expect(adapter.updateMany).not.toHaveBeenCalled();
-			expect(result).toEqual({ total: 0, missing: 0, updated: 0 });
+			expect(result).toEqual({
+				total: 0,
+				missing: 0,
+				updated: 0,
+				issuerRequired: true,
+			});
 		});
 
-		it("should refuse on Better Auth < 1.7 (no account.issuer field)", async () => {
-			const legacyAuth = {
+		it("should report no backfill needed without an account.issuer field (Better Auth 1.5 – 1.6, 1.7.3+)", async () => {
+			adapter.count.mockReset().mockResolvedValue(3);
+			const providerKeyedAuth = {
 				$context: Promise.resolve({
 					adapter,
 					tables: { account: { fields: { providerId: {} } } },
 				}),
 			} as any;
 
-			await expect(backfillAccountIssuers(legacyAuth)).rejects.toThrow(
-				/Better Auth >= 1\.7/,
-			);
-			expect(adapter.count).not.toHaveBeenCalled();
+			const result = await backfillAccountIssuers(providerKeyedAuth);
+
+			expect(result).toEqual({
+				total: 3,
+				missing: 0,
+				updated: 0,
+				issuerRequired: false,
+			});
+			expect(adapter.count).toHaveBeenCalledOnce();
 			expect(adapter.updateMany).not.toHaveBeenCalled();
 		});
 	});
@@ -1309,11 +1330,14 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 
 		const ctx = await (auth as any).$context;
 		if (!ctx.tables.account?.fields?.issuer) {
-			// better-auth < 1.7: the schema has no issuer, so the backfill must
-			// refuse rather than silently write nothing.
-			await expect(backfillAccountIssuers(auth as any)).rejects.toThrow(
-				/Better Auth >= 1\.7/,
-			);
+			// better-auth 1.5 – 1.6 and 1.7.3+ key accounts by (providerId,
+			// accountId): there is nothing to backfill, and nothing is written.
+			expect(await backfillAccountIssuers(auth as any)).toEqual({
+				total: 1,
+				missing: 0,
+				updated: 0,
+				issuerRequired: false,
+			});
 			return;
 		}
 
@@ -1325,10 +1349,20 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		});
 
 		const dry = await backfillAccountIssuers(auth as any, { dryRun: true });
-		expect(dry).toEqual({ total: 1, missing: 1, updated: 0 });
+		expect(dry).toEqual({
+			total: 1,
+			missing: 1,
+			updated: 0,
+			issuerRequired: true,
+		});
 
 		const result = await backfillAccountIssuers(auth as any);
-		expect(result).toEqual({ total: 1, missing: 1, updated: 1 });
+		expect(result).toEqual({
+			total: 1,
+			missing: 1,
+			updated: 1,
+			issuerRequired: true,
+		});
 
 		// The stamped row is found by (issuer, accountId) again: same user, no duplicate.
 		const res2 = await client.$fetch("/firebase-auth/sign-in-with-google", {
