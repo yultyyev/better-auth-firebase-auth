@@ -61,7 +61,7 @@ type LegacyInternalAdapter = {
 		providerId: string,
 	) => Promise<{
 		user: User;
-		linkedAccount: Pick<Account, "id"> | null;
+		linkedAccount: Pick<Account, "id" | "userId"> | null;
 	} | null>;
 };
 
@@ -115,7 +115,13 @@ const findFirebaseAccountOwner = async (
 		FIREBASE_PROVIDER_ID,
 	);
 	return {
-		user: legacy?.user ?? null,
+		// findOAuthUser also returns a user matched only by email (no account, or
+		// an orphaned one). Only the account's own user counts as linked, so the
+		// email match goes through createOrUpdateUser's verified-email check.
+		user:
+			legacy?.linkedAccount && legacy.linkedAccount.userId === legacy.user.id
+				? legacy.user
+				: null,
 		account: legacy?.linkedAccount ?? null,
 	};
 };

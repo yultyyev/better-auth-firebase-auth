@@ -402,7 +402,7 @@ These versions look accounts up by `(issuer, accountId)` — there is no fallbac
 
 The issuer value is exported as `FIREBASE_ACCOUNT_ISSUER` from `better-auth-firebase-auth/server` for use in migration scripts. New rows written on Better Auth 1.7.0 – 1.7.2 already carry it.
 
-**If you forget:** the plugin checks on startup and logs one `[better-auth-firebase-auth]` warning with the exact command whenever Better Auth expects `issuer` but Firebase account rows lack it (two `count` reads per process; `migrationChecks: false` disables it). Sign-in itself keeps working — the plugin falls back to matching by email and re-links — but until the backfill runs the old row stays orphaned and, on MySQL, `auth migrate` may have silently filled `issuer` with an empty string (see the upgrade guide's corruption check).
+**If you forget:** the plugin checks on startup and logs one `[better-auth-firebase-auth]` warning with the exact command whenever Better Auth expects `issuer` but Firebase account rows lack it (two `count` reads per process; `migrationChecks: false` disables it). Until the backfill runs, users whose Firebase token carries a verified email still sign in — the plugin falls back to matching by email and re-links — but users without one (phone-only and unverified email/password sign-ins) are refused, the old row stays orphaned, and, on MySQL, `auth migrate` may have silently filled `issuer` with an empty string (see the upgrade guide's corruption check).
 
 ---
 
