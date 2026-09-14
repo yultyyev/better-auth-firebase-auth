@@ -2028,6 +2028,96 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		);
 	});
 
+	it.each([
+		["/firebase-auth/sign-in-with-google", false],
+		["/firebase-auth/sign-in-with-email", false],
+		["/sign-in/email", true],
+	] as const)(
+		"should not echo an internal error from %s",
+		async (path, overrideEmailPasswordFlow) => {
+			const { client } = await getTestInstance(
+				{
+					databaseHooks: {
+						user: {
+							create: {
+								before: async () => {
+									throw new Error(
+										"SQLITE_CONSTRAINT: UNIQUE constraint failed: user.email",
+									);
+								},
+							},
+						},
+					},
+					plugins: [
+						firebaseAuthPlugin({
+							firebaseAdminAuth: mockAdminAuth as any,
+							...(overrideEmailPasswordFlow && {
+								overrideEmailPasswordFlow: true,
+								firebaseConfig: {
+									apiKey: "test-api-key",
+									authDomain: "test.firebaseapp.com",
+									projectId: "test-project",
+								},
+							}),
+						}),
+					],
+				},
+				{ disableTestUser: true },
+			);
+			vi.mocked(signInWithEmailAndPassword).mockResolvedValue({
+				user: { getIdToken: vi.fn().mockResolvedValue("firebase-token") },
+			} as any);
+
+			const res = await client.$fetch(path, {
+				method: "POST",
+				body: overrideEmailPasswordFlow
+					? {
+							email: "integration@example.com",
+							password: "firebase-password-123",
+						}
+					: { idToken: "firebase-token" },
+			});
+
+			expect((res.error as any)?.status).toBe(500);
+			expect(JSON.stringify(res.error)).not.toContain("SQLITE_CONSTRAINT");
+		},
+	);
+
+	it("should still return 401 for a Firebase sign-in error in the overrideEmailPasswordFlow hook", async () => {
+		const { client } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({
+						firebaseAdminAuth: mockAdminAuth as any,
+						overrideEmailPasswordFlow: true,
+						firebaseConfig: {
+							apiKey: "test-api-key",
+							authDomain: "test.firebaseapp.com",
+							projectId: "test-project",
+						},
+					}),
+				],
+			},
+			{ disableTestUser: true },
+		);
+		vi.mocked(signInWithEmailAndPassword).mockRejectedValue(
+			new Error("Firebase: Error (auth/wrong-password)."),
+		);
+
+		const res = await client.$fetch("/sign-in/email", {
+			method: "POST",
+			body: {
+				email: "integration@example.com",
+				password: "wrong-password-123",
+			},
+		});
+
+		expect((res.error as any)?.status).toBe(401);
+		expect((res.error as any)?.message).toBe(
+			"Firebase authentication failed: Firebase: Error (auth/wrong-password).",
+		);
+	});
+
 	it("should not register endpoints when serverSideOnly is true", async () => {
 		const { client } = await getTestInstance(
 			{

@@ -549,20 +549,10 @@ export const firebaseAuthPlugin = (
 					});
 				}
 
+				let decodedToken: DecodedToken;
 				try {
-					const decodedToken = await adminAuth.verifyIdToken(idToken);
-					const result = await createOrUpdateUser(
-						ctx,
-						decodedToken,
-						idToken,
-						sessionExpiresInDays,
-					);
-					return ctx.json(result);
+					decodedToken = await adminAuth.verifyIdToken(idToken);
 				} catch (error) {
-					// Refusals from createOrUpdateUser already carry their own message.
-					if (error instanceof APIError) {
-						throw error;
-					}
 					if (error instanceof Error) {
 						throw new APIError("UNAUTHORIZED", {
 							message: `Firebase token verification failed: ${error.message}`,
@@ -570,6 +560,14 @@ export const firebaseAuthPlugin = (
 					}
 					throw error;
 				}
+
+				const result = await createOrUpdateUser(
+					ctx,
+					decodedToken,
+					idToken,
+					sessionExpiresInDays,
+				);
+				return ctx.json(result);
 			},
 		);
 
@@ -628,20 +626,10 @@ export const firebaseAuthPlugin = (
 					}
 				}
 
+				let decodedToken: DecodedToken;
 				try {
-					const decodedToken = await adminAuth.verifyIdToken(idToken);
-					const result = await createOrUpdateUser(
-						ctx,
-						decodedToken,
-						idToken,
-						sessionExpiresInDays,
-					);
-					return ctx.json(result);
+					decodedToken = await adminAuth.verifyIdToken(idToken);
 				} catch (error) {
-					// Refusals from createOrUpdateUser already carry their own message.
-					if (error instanceof APIError) {
-						throw error;
-					}
 					if (error instanceof Error) {
 						throw new APIError("UNAUTHORIZED", {
 							message: `Firebase token verification failed: ${error.message}`,
@@ -649,6 +637,14 @@ export const firebaseAuthPlugin = (
 					}
 					throw error;
 				}
+
+				const result = await createOrUpdateUser(
+					ctx,
+					decodedToken,
+					idToken,
+					sessionExpiresInDays,
+				);
+				return ctx.json(result);
 			},
 		);
 
@@ -897,6 +893,8 @@ export const firebaseAuthPlugin = (
 				});
 			}
 
+			let idToken: string;
+			let decodedToken: DecodedToken;
 			try {
 				const {
 					getAuth,
@@ -928,21 +926,9 @@ export const firebaseAuthPlugin = (
 					);
 				}
 
-				const idToken = await userCredential.user.getIdToken();
-				const decodedToken = await adminAuth.verifyIdToken(idToken);
-				const result = await createOrUpdateUser(
-					ctx,
-					decodedToken,
-					idToken,
-					sessionExpiresInDays,
-				);
-
-				return ctx.json(result);
+				idToken = await userCredential.user.getIdToken();
+				decodedToken = await adminAuth.verifyIdToken(idToken);
 			} catch (error) {
-				// Refusals from createOrUpdateUser already carry their own message.
-				if (error instanceof APIError) {
-					throw error;
-				}
 				if (error instanceof Error) {
 					throw new APIError("UNAUTHORIZED", {
 						message: `Firebase authentication failed: ${error.message}`,
@@ -950,6 +936,15 @@ export const firebaseAuthPlugin = (
 				}
 				throw error;
 			}
+
+			const result = await createOrUpdateUser(
+				ctx,
+				decodedToken,
+				idToken,
+				sessionExpiresInDays,
+			);
+
+			return ctx.json(result);
 		};
 
 		hooks.before?.push(
