@@ -46,6 +46,8 @@ describe("firebaseAuthPlugin", () => {
 		createSession: vi.fn(),
 		linkAccount: vi.fn(),
 		updateAccount: vi.fn(),
+		listSessions: vi.fn(),
+		deleteSessions: vi.fn(),
 	};
 
 	const mockDecodedToken = {
@@ -97,6 +99,8 @@ describe("firebaseAuthPlugin", () => {
 		mockInternalAdapter.updateUser.mockResolvedValue(mockUser);
 		mockInternalAdapter.linkAccount.mockResolvedValue(mockAccount);
 		mockInternalAdapter.updateAccount.mockResolvedValue(mockAccount);
+		mockInternalAdapter.listSessions.mockResolvedValue([]);
+		mockInternalAdapter.deleteSessions.mockResolvedValue(undefined);
 		mockInternalAdapter.createSession.mockResolvedValue(mockSession);
 		mockAdminAuth.verifyIdToken.mockResolvedValue(mockDecodedToken);
 		vi.mocked(setSessionCookie).mockResolvedValue(undefined);
@@ -617,6 +621,27 @@ describe("firebaseAuthPlugin", () => {
 				expect(mockInternalAdapter.linkAccount).toHaveBeenCalledWith(
 					expect.objectContaining({ userId: "user-123" }),
 				);
+			});
+
+			it("should not verify the stored email from a token for a different address", async () => {
+				mockInternalAdapter.findOAuthUser.mockResolvedValue({
+					user: { ...mockUser, emailVerified: false },
+					linkedAccount: mockAccount,
+					accounts: [mockAccount],
+				});
+
+				const ctx = createMockCtx();
+				await createOrUpdateUser(
+					ctx as any,
+					{ ...mockDecodedToken, email: "changed@example.com" },
+					"id-token-abc",
+				);
+
+				expect(mockInternalAdapter.updateUser).toHaveBeenCalledWith(
+					"user-123",
+					expect.objectContaining({ emailVerified: false }),
+				);
+				expect(mockInternalAdapter.deleteSessions).not.toHaveBeenCalled();
 			});
 		});
 
@@ -1149,6 +1174,11 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		});
 
 		const preExistingUserId = ctx.user.id;
+		// Linking by email needs the existing user's own address verified too.
+		const authCtx = await (auth as any).$context;
+		await authCtx.internalAdapter.updateUser(preExistingUserId, {
+			emailVerified: true,
+		});
 
 		const res = await client.$fetch("/firebase-auth/sign-in-with-google", {
 			method: "POST",
@@ -1257,6 +1287,123 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			);
 		},
 	);
+
+	it("should not link a verified sign-in into a user registered first with an unverified token", async () => {
+		const { client, auth } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({ firebaseAdminAuth: mockAdminAuth as any }),
+				],
+			},
+			{ disableTestUser: true },
+		);
+		const claims = {
+			email: "victim@example.com",
+			exp: Math.floor(Date.now() / 1000) + 3600,
+		};
+
+		mockAdminAuth.verifyIdToken.mockResolvedValue({
+			...claims,
+			uid: "attacker-uid",
+			email_verified: false,
+		});
+		const squatter = await client.$fetch("/firebase-auth/sign-in-with-email", {
+			method: "POST",
+			body: { idToken: "attacker-token" },
+		});
+		const squatterUserId = (squatter.data as any).user.id;
+
+		mockAdminAuth.verifyIdToken.mockResolvedValue({
+			...claims,
+			uid: "victim-uid",
+			email_verified: true,
+		});
+		const res = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "victim-token" },
+		});
+
+		expect((res.error as any)?.status).toBe(401);
+		const ctx = await (auth as any).$context;
+		const accounts = await ctx.adapter.findMany({
+			model: "account",
+			where: [{ field: "userId", value: squatterUserId }],
+		});
+		expect(accounts.map((a: any) => a.accountId)).toEqual(["attacker-uid"]);
+	});
+
+	it("should link into an unverified existing user when requireLocalEmailVerified is false", async () => {
+		const { client, auth } = await getTestInstance(
+			{
+				account: { accountLinking: { requireLocalEmailVerified: false } },
+				plugins: [
+					firebaseAuthPlugin({ firebaseAdminAuth: mockAdminAuth as any }),
+				],
+			},
+			{ disableTestUser: true },
+		);
+		const existing = await auth.api.signUpEmail({
+			body: {
+				email: "integration@example.com",
+				password: "test-password-123",
+				name: "Existing User",
+			},
+		});
+
+		const res = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "firebase-token" },
+		});
+
+		expect((res.data as any)?.user.id).toBe(existing.user.id);
+	});
+
+	it("should end the unverified sign-in's sessions once the same Firebase user verifies the email", async () => {
+		const { client, auth } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({ firebaseAdminAuth: mockAdminAuth as any }),
+				],
+			},
+			{ disableTestUser: true },
+		);
+		// Once the address is proven, Firebase removes the unverified password from
+		// that user, so the verified sign-in arrives with the same UID.
+		const claims = {
+			uid: "same-firebase-uid",
+			email: "victim@example.com",
+			exp: Math.floor(Date.now() / 1000) + 3600,
+		};
+
+		mockAdminAuth.verifyIdToken.mockResolvedValue({
+			...claims,
+			email_verified: false,
+		});
+		const first = await client.$fetch("/firebase-auth/sign-in-with-email", {
+			method: "POST",
+			body: { idToken: "unverified-token" },
+		});
+
+		mockAdminAuth.verifyIdToken.mockResolvedValue({
+			...claims,
+			email_verified: true,
+		});
+		const second = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "verified-token" },
+		});
+
+		const userId = (second.data as any).user.id;
+		expect(userId).toBe((first.data as any).user.id);
+		const ctx = await (auth as any).$context;
+		const sessions = await ctx.adapter.findMany({
+			model: "session",
+			where: [{ field: "userId", value: userId }],
+		});
+		expect(sessions.map((s: any) => s.token)).toEqual([
+			(second.data as any).session.token,
+		]);
+	});
 
 	it("should handle token without email", async () => {
 		mockAdminAuth.verifyIdToken.mockResolvedValue({

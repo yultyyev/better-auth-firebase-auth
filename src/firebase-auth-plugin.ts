@@ -158,6 +158,19 @@ export const createOrUpdateUser = async (
 						"Verify your email address before signing in with this method.",
 				});
 			}
+			// The existing user must have proven the address too. Otherwise whoever
+			// registered it first, e.g. with an unverified token, keeps access to the
+			// account the real owner is linked into (pre-account hijacking). Same
+			// default and opt-out as Better Auth's own account linking.
+			const requireLocalEmailVerified =
+				ctx.context.options?.account?.accountLinking
+					?.requireLocalEmailVerified ?? true;
+			if (requireLocalEmailVerified && !found.user.emailVerified) {
+				throw new APIError("UNAUTHORIZED", {
+					message:
+						"Verify the email address of the existing account before signing in with this method.",
+				});
+			}
 			user = found.user;
 		}
 	}
@@ -178,10 +191,26 @@ export const createOrUpdateUser = async (
 			},
 		);
 	} else {
+		// Only a token for the stored address may verify it: a Firebase account
+		// whose email changed must not mark the old address as verified.
+		const emailVerified =
+			decodedToken.email?.toLowerCase() === user.email?.toLowerCase()
+				? (decodedToken.email_verified ?? user.emailVerified)
+				: user.emailVerified;
+		if (emailVerified && !user.emailVerified) {
+			// First proof that this user owns the address: end sessions opened
+			// before it, e.g. by whoever registered it unverified. Firebase likewise
+			// removes an unverified sign-in method from the user and invalidates its
+			// own sessions once the address is proven; the plugin's would survive.
+			const sessions = await internalAdapter.listSessions(user.id);
+			if (sessions.length > 0) {
+				await internalAdapter.deleteSessions(sessions.map((s) => s.token));
+			}
+		}
 		user = await internalAdapter.updateUser(user.id, {
 			name: decodedToken.name || user.name,
 			image: decodedToken.picture || user.image,
-			emailVerified: decodedToken.email_verified ?? user.emailVerified,
+			emailVerified,
 		});
 	}
 
