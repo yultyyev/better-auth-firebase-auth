@@ -117,15 +117,28 @@ const findFirebaseAccountOwner = async (
 		decodedToken.uid,
 		FIREBASE_PROVIDER_ID,
 	);
+	if (!legacy) {
+		return { user: null, account: null };
+	}
+	// findOAuthUser also returns a user matched only by email: with no account
+	// for the UID, or with an orphaned one. That user counts as linked only when
+	// it owns the account, or owns another row for the same UID: a user deleted
+	// without cascading (e.g. on Firestore) leaves its row, and the UID's next
+	// sign-in adds a new user with a second row. Any other email match goes
+	// through createOrUpdateUser's verified-email check.
+	const owned =
+		legacy.linkedAccount?.userId === legacy.user.id ||
+		(legacy.linkedAccount !== null &&
+			(
+				await (internalAdapter as InternalAdapter).findAccounts(legacy.user.id)
+			).some(
+				(account) =>
+					account.providerId === FIREBASE_PROVIDER_ID &&
+					account.accountId === decodedToken.uid,
+			));
 	return {
-		// findOAuthUser also returns a user matched only by email (no account, or
-		// an orphaned one). Only the account's own user counts as linked, so the
-		// email match goes through createOrUpdateUser's verified-email check.
-		user:
-			legacy?.linkedAccount && legacy.linkedAccount.userId === legacy.user.id
-				? legacy.user
-				: null,
-		account: legacy?.linkedAccount ?? null,
+		user: owned ? legacy.user : null,
+		account: legacy.linkedAccount,
 	};
 };
 

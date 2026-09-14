@@ -38,6 +38,8 @@ A Firebase sign-in is linked to an existing Better Auth user with the same email
 
 A phone sign-in without an email uses the address from `getPhoneUserFallbackEmail`, which nobody can verify. If a Better Auth user already has that address, the sign-in is linked to it only when every account on that user is a Firebase account whose last ID token carried the same number and whose Firebase user no longer exists, as after a Firebase user is deleted and the number signs up again under a new UID. That sign-in ends the user's other sessions. The plugin checks with the Admin SDK's `getUser`, so it needs credentials that can read users, and with Identity Platform tenants an Admin instance scoped to the token's tenant. Any other match is refused with 401, which is also what a fallback that isn't unique per phone number (a constant, say) gets instead of merging phone users. With a fallback built from the phone number, delete the Better Auth user whenever you delete its Firebase user; otherwise whoever gets the number next signs in to that account.
 
+A Firebase account row left behind when its user was deleted without cascading (for example on Firestore) moves to the user that UID signs in as next, or to one the checks above allow, and never to a user those checks refuse, since that would hand the UID someone else's account. On Better Auth 1.5 – 1.6 the first sign-in after such a delete adds a second row for the UID instead, and the old row moves on the sign-in after that. Delete one of the two before upgrading to Better Auth 1.7.3 or later, which refuses a UID with two rows.
+
 ---
 
 ## Supported Authentication Methods
