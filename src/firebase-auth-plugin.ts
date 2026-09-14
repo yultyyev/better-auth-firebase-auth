@@ -17,13 +17,16 @@ import type { AuthResponse, FirebaseAuthPluginOptions } from "./types.js";
 /**
  * Issuer stored on Firebase-linked `account` rows.
  *
- * Better Auth >= 1.7 identifies accounts by the `(issuer, accountId)` pair and
- * requires `issuer` on every row. Firebase is not a configured OIDC provider in
- * Better Auth, so the plugin uses the synthetic issuer Better Auth derives for
- * OAuth providers without one (`createOAuthAccountIssuer("firebase")`).
+ * Better Auth 1.7.0 – 1.7.2 identify accounts by the `(issuer, accountId)`
+ * pair and require `issuer` on every row. Firebase is not a configured OIDC
+ * provider in Better Auth, so the plugin uses the synthetic issuer Better Auth
+ * derives for OAuth providers without one (`createOAuthAccountIssuer("firebase")`).
+ * 1.5 – 1.6 and 1.7.3+ key accounts by `(providerId, accountId)` and have no
+ * `issuer` field, so the plugin writes it only on 1.7.0 – 1.7.2.
  *
- * When upgrading an existing database to Better Auth 1.7, backfill this value
- * on rows where `providerId = 'firebase'` before making `issuer` NOT NULL.
+ * When upgrading an existing database to Better Auth 1.7.0 – 1.7.2, backfill
+ * this value on rows where `providerId = 'firebase'` before making `issuer`
+ * NOT NULL.
  */
 export const FIREBASE_ACCOUNT_ISSUER = "local:oauth:firebase";
 
@@ -63,21 +66,41 @@ type LegacyInternalAdapter = {
 };
 
 /**
+ * `findAccountOwnerByKey` of Better Auth 1.7.0 – 1.7.2, which key accounts by
+ * `(issuer, accountId)`; 1.7.3 went back to `(providerId, accountId)`.
+ */
+type IssuerKeyedInternalAdapter = {
+	findAccountOwnerByKey: (key: {
+		issuer: string;
+		accountId: string;
+	}) => ReturnType<InternalAdapter["findAccountOwnerByKey"]>;
+};
+
+/**
  * Find the Better Auth user linked to a Firebase UID.
  *
- * Better Auth >= 1.7 keys accounts by `(issuer, accountId)` and removed
- * `findOAuthUser`; 1.5 – 1.6 key them by `(providerId, accountId)`. Feature
- * detection keeps a single build working across both lines.
+ * Better Auth 1.7 replaced `findOAuthUser` with `findAccountOwnerByKey`, keyed
+ * by `(issuer, accountId)` on 1.7.0 – 1.7.2 and by `(providerId, accountId)`
+ * from 1.7.3, as on 1.5 – 1.6. Feature detection keeps a single build working
+ * across all three.
  */
 const findFirebaseAccountOwner = async (
 	internalAdapter: InternalAdapter,
 	decodedToken: DecodedToken,
+	keyedByIssuer: boolean,
 ): Promise<{ user: User | null; account: Pick<Account, "id"> | null }> => {
 	if ("findAccountOwnerByKey" in internalAdapter) {
-		const owner = await internalAdapter.findAccountOwnerByKey({
-			issuer: FIREBASE_ACCOUNT_ISSUER,
-			accountId: decodedToken.uid,
-		});
+		const owner = keyedByIssuer
+			? await (
+					internalAdapter as unknown as IssuerKeyedInternalAdapter
+				).findAccountOwnerByKey({
+					issuer: FIREBASE_ACCOUNT_ISSUER,
+					accountId: decodedToken.uid,
+				})
+			: await internalAdapter.findAccountOwnerByKey({
+					providerId: FIREBASE_PROVIDER_ID,
+					accountId: decodedToken.uid,
+				});
 		return {
 			user: owner?.kind === "owned" ? owner.user : null,
 			account: owner?.account ?? null,
@@ -104,9 +127,14 @@ export const createOrUpdateUser = async (
 	sessionExpiresInDays: number = 7,
 ): Promise<AuthResponse> => {
 	const { internalAdapter } = ctx.context;
+	const keyedByIssuer = accountsKeyedByIssuer(ctx.context.tables);
 
 	const { user: linkedUser, account: existingAccount } =
-		await findFirebaseAccountOwner(internalAdapter, decodedToken);
+		await findFirebaseAccountOwner(
+			internalAdapter,
+			decodedToken,
+			keyedByIssuer,
+		);
 	let user = linkedUser;
 
 	if (!user && decodedToken.email) {
@@ -140,7 +168,8 @@ export const createOrUpdateUser = async (
 	if (!existingAccount) {
 		await internalAdapter.linkAccount({
 			providerId: FIREBASE_PROVIDER_ID,
-			issuer: FIREBASE_ACCOUNT_ISSUER,
+			// Only Better Auth 1.7.0 – 1.7.2 have (and require) account.issuer.
+			...(keyedByIssuer && { issuer: FIREBASE_ACCOUNT_ISSUER }),
 			accountId: decodedToken.uid,
 			userId: user.id,
 			idToken,
@@ -630,10 +659,12 @@ export const firebaseAuthPlugin = (
 };
 
 /**
- * Log one startup warning when Better Auth 1.7 expects `account.issuer` but
- * Firebase rows written by earlier versions still lack it — the symptom would
- * otherwise be existing users silently losing their account link on sign-in.
- * Two equality-only `count` reads; skipped on Better Auth < 1.7.
+ * Log one startup warning when Better Auth 1.7.0 – 1.7.2 expect
+ * `account.issuer` but Firebase rows written by earlier versions still lack
+ * it — the symptom would otherwise be existing users silently losing their
+ * account link on sign-in. Two equality-only `count` reads; skipped on
+ * Better Auth 1.5 – 1.6 and 1.7.3+, which key accounts by
+ * `(providerId, accountId)`.
  */
 const warnIfIssuerBackfillNeeded = async (ctx: {
 	tables?: { account?: { fields?: Record<string, unknown> } };
@@ -641,8 +672,8 @@ const warnIfIssuerBackfillNeeded = async (ctx: {
 	logger?: { warn: (message: string) => void };
 }): Promise<void> => {
 	try {
-		if (!ctx.tables?.account?.fields?.issuer) {
-			return; // Better Auth < 1.7 — accounts are not keyed by issuer yet.
+		if (!accountsKeyedByIssuer(ctx.tables)) {
+			return; // 1.5 – 1.6 and 1.7.3+ key accounts by (providerId, accountId).
 		}
 		const providerWhere = [
 			{ field: "providerId", value: FIREBASE_PROVIDER_ID },
@@ -665,10 +696,12 @@ const warnIfIssuerBackfillNeeded = async (ctx: {
 		if (missing > 0) {
 			ctx.logger?.warn(
 				`[better-auth-firebase-auth] ${missing} of ${total} Firebase account rows have no issuer. ` +
-					`Better Auth 1.7 looks accounts up by (issuer, accountId), so those users' Firebase links are not found until backfilled. ` +
-					`Run: npx better-auth-firebase-auth backfill-account-issuers --apply — ` +
+					`Better Auth 1.7.0 – 1.7.2 look accounts up by (issuer, accountId), so those users' Firebase links are not found until backfilled. ` +
+					`Upgrade better-auth to >= 1.7.3, which keys accounts by (providerId, accountId) again and needs no backfill, ` +
+					`or run: npx better-auth-firebase-auth backfill-account-issuers --apply — ` +
 					`or await backfillAccountIssuers(auth) from "better-auth-firebase-auth/server" — ` +
 					`or SQL: UPDATE account SET issuer = '${FIREBASE_ACCOUNT_ISSUER}' WHERE providerId = '${FIREBASE_PROVIDER_ID}'. ` +
+					`Details: https://github.com/yultyyev/better-auth-firebase-auth#upgrading-an-existing-app-to-better-auth-17. ` +
 					`Set migrationChecks: false on firebaseAuthPlugin() to silence this check.`,
 			);
 		}

@@ -9,10 +9,11 @@ export interface FirebaseAuthPluginOptions {
 	firebaseConfig?: FirebaseOptions;
 	sessionExpiresInDays?: number;
 	/**
-	 * On startup, count Firebase account rows that still lack the Better Auth
-	 * 1.7 `issuer` value and log one warning with the exact remediation when
-	 * any are found (two equality-only `count` reads per process; skipped
-	 * entirely on Better Auth < 1.7). Set to `false` to disable.
+	 * On startup, count Firebase account rows that still lack the `issuer`
+	 * value Better Auth 1.7.0 – 1.7.2 require and log one warning with the
+	 * exact remediation when any are found (two equality-only `count` reads per
+	 * process; skipped entirely on Better Auth 1.5 – 1.6 and 1.7.3+, which key
+	 * accounts by `(providerId, accountId)`). Set to `false` to disable.
 	 *
 	 * @default true
 	 */

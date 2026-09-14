@@ -56,16 +56,16 @@ All authentication methods follow the same core flow:
 2. **Verify token** with Firebase Admin SDK (`adminAuth.verifyIdToken()`)
 3. **Create/update Better Auth user** via `internalAdapter.createUser()` / `internalAdapter.updateUser()`
 4. **Create Better Auth session** via `internalAdapter.createSession()`
-5. **Store account link** via `internalAdapter.linkAccount()` / `internalAdapter.updateAccount()` with `providerId: "firebase"`, `accountId: <Firebase UID>`, `issuer: FIREBASE_ACCOUNT_ISSUER`
+5. **Store account link** via `internalAdapter.linkAccount()` / `internalAdapter.updateAccount()` with `providerId: "firebase"`, `accountId: <Firebase UID>`, plus `issuer: FIREBASE_ACCOUNT_ISSUER` on Better Auth 1.7.0 – 1.7.2
 
 When adding new providers, follow the `signInWithGoogle` endpoint pattern as a reference implementation.
 
 ### Important Notes
 
 - All Firebase authentication methods use `providerId: "firebase"` in account records
-- `accountId` is the Firebase UID; `issuer` is `FIREBASE_ACCOUNT_ISSUER` (`"local:oauth:firebase"`)
+- `accountId` is the Firebase UID; on Better Auth 1.7.0 – 1.7.2 rows also carry `issuer: FIREBASE_ACCOUNT_ISSUER` (`"local:oauth:firebase"`)
 - User, account, and session operations all go through `internalAdapter` (not `adapter`) for proper database hooks and secondary storage support
-- Better Auth 1.7 keys accounts by `(issuer, accountId)` and removed `findOAuthUser`; 1.5 – 1.6 key them by `(providerId, accountId)`. `findFirebaseAccountOwner` in `src/firebase-auth-plugin.ts` feature-detects `findAccountOwnerByKey` so one build supports both. CI runs the tests against 1.5, 1.6, and 1.7 — keep that matrix green when touching the lookup
+- Better Auth 1.7 replaced `findOAuthUser` with `findAccountOwnerByKey`. 1.7.0 – 1.7.2 key accounts by `(issuer, accountId)` and declare a required `account.issuer` field; 1.5 – 1.6 and 1.7.3+ key them by `(providerId, accountId)`. `findFirebaseAccountOwner` in `src/firebase-auth-plugin.ts` feature-detects both (`findAccountOwnerByKey` on the internal adapter, `issuer` in `context.tables.account.fields`) so one build supports every line. CI runs the tests against 1.5, 1.6, 1.7.2, and the latest 1.7 — keep that matrix green when touching the lookup
 
 ## Project Files
 
@@ -121,7 +121,7 @@ examples/
 ### Account Storage
 
 - All Firebase Auth methods use `providerId: "firebase"` in account records
-- `accountId` is the Firebase UID; `issuer` is `FIREBASE_ACCOUNT_ISSUER`
+- `accountId` is the Firebase UID; `issuer` is `FIREBASE_ACCOUNT_ISSUER` on Better Auth 1.7.0 – 1.7.2 only
 - Use `context.internalAdapter.linkAccount()` / `updateAccount()` for account records
 
 ### Endpoint Creation Pattern

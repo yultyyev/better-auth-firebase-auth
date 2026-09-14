@@ -198,7 +198,6 @@ describe("firebaseAuthPlugin", () => {
 
 				expect(mockInternalAdapter.linkAccount).toHaveBeenCalledWith({
 					providerId: "firebase",
-					issuer: FIREBASE_ACCOUNT_ISSUER,
 					accountId: "firebase-uid-123",
 					userId: "user-123",
 					idToken: "id-token-abc",
@@ -346,7 +345,6 @@ describe("firebaseAuthPlugin", () => {
 
 				expect(mockInternalAdapter.linkAccount).toHaveBeenCalledWith({
 					providerId: "firebase",
-					issuer: FIREBASE_ACCOUNT_ISSUER,
 					accountId: "firebase-uid-123",
 					userId: "user-123",
 					idToken: "id-token-abc",
@@ -356,7 +354,8 @@ describe("firebaseAuthPlugin", () => {
 		});
 
 		describe("better-auth >= 1.7 adapter (findAccountOwnerByKey)", () => {
-			// 1.7 removed findOAuthUser and keys accounts by (issuer, accountId)
+			// 1.7 removed findOAuthUser. 1.7.3+ key accounts by (providerId,
+			// accountId); 1.7.0 – 1.7.2 by (issuer, accountId).
 			const { findOAuthUser: _legacy, ...modernMethods } = mockInternalAdapter;
 			const modernAdapter = {
 				...modernMethods,
@@ -369,14 +368,36 @@ describe("firebaseAuthPlugin", () => {
 					Promise.resolve(new Response(JSON.stringify(data))),
 				),
 			});
+			// 1.7.0 – 1.7.2 declare a required account.issuer field.
+			const createIssuerKeyedCtx = () => ({
+				...createModernCtx(),
+				context: {
+					internalAdapter: modernAdapter,
+					tables: { account: { fields: { issuer: { type: "string" } } } },
+				},
+			});
 
 			beforeEach(() => {
 				modernAdapter.findAccountOwnerByKey.mockResolvedValue(null);
 			});
 
-			it("should look up the account by issuer + accountId and never call findOAuthUser", async () => {
+			it("should look up the account by providerId + accountId and never call findOAuthUser (1.7.3+)", async () => {
 				await createOrUpdateUser(
 					createModernCtx() as any,
+					mockDecodedToken,
+					"id-token-abc",
+				);
+
+				expect(modernAdapter.findAccountOwnerByKey).toHaveBeenCalledWith({
+					providerId: "firebase",
+					accountId: "firebase-uid-123",
+				});
+				expect(mockInternalAdapter.findOAuthUser).not.toHaveBeenCalled();
+			});
+
+			it("should look up by issuer + accountId and link with issuer when the schema has account.issuer (1.7.0 – 1.7.2)", async () => {
+				await createOrUpdateUser(
+					createIssuerKeyedCtx() as any,
 					mockDecodedToken,
 					"id-token-abc",
 				);
@@ -386,10 +407,17 @@ describe("firebaseAuthPlugin", () => {
 					accountId: "firebase-uid-123",
 				});
 				expect(FIREBASE_ACCOUNT_ISSUER).toBe("local:oauth:firebase");
-				expect(mockInternalAdapter.findOAuthUser).not.toHaveBeenCalled();
+				expect(modernAdapter.linkAccount).toHaveBeenCalledWith({
+					providerId: "firebase",
+					issuer: FIREBASE_ACCOUNT_ISSUER,
+					accountId: "firebase-uid-123",
+					userId: "user-123",
+					idToken: "id-token-abc",
+					accessTokenExpiresAt: expect.any(Date),
+				});
 			});
 
-			it("should create the user with a provisioning source and link with issuer when no account exists", async () => {
+			it("should create the user with a provisioning source and link without issuer when no account exists (1.7.3+)", async () => {
 				await createOrUpdateUser(
 					createModernCtx() as any,
 					mockDecodedToken,
@@ -406,14 +434,13 @@ describe("firebaseAuthPlugin", () => {
 						oauth: { providerId: "firebase", profile: mockDecodedToken },
 					},
 				);
-				expect(modernAdapter.linkAccount).toHaveBeenCalledWith(
-					expect.objectContaining({
-						providerId: "firebase",
-						issuer: FIREBASE_ACCOUNT_ISSUER,
-						accountId: "firebase-uid-123",
-						userId: "user-123",
-					}),
-				);
+				expect(modernAdapter.linkAccount).toHaveBeenCalledWith({
+					providerId: "firebase",
+					accountId: "firebase-uid-123",
+					userId: "user-123",
+					idToken: "id-token-abc",
+					accessTokenExpiresAt: expect.any(Date),
+				});
 			});
 
 			it("should reuse the owner when the account is owned", async () => {
@@ -710,6 +737,7 @@ describe("firebaseAuthPlugin", () => {
 			);
 			expect(message).toContain("backfillAccountIssuers");
 			expect(message).toContain(FIREBASE_ACCOUNT_ISSUER);
+			expect(message).toContain(">= 1.7.3");
 			expect(message).toContain("migrationChecks: false");
 		});
 
@@ -722,7 +750,7 @@ describe("firebaseAuthPlugin", () => {
 			expect(ctx.logger.warn).not.toHaveBeenCalled();
 		});
 
-		it("should stay silent and read nothing on Better Auth < 1.7", async () => {
+		it("should stay silent and read nothing without an account.issuer field (Better Auth 1.5 – 1.6, 1.7.3+)", async () => {
 			const { ctx, count } = makeCtx({ total: 5, stamped: 0 }, false);
 			firebaseAuthPlugin({ firebaseAdminAuth: mockAdminAuth as any }).init?.(
 				ctx as any,
