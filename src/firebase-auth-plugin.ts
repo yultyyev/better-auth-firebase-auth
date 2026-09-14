@@ -49,6 +49,9 @@ type DecodedToken = {
 	email_verified?: boolean;
 	phone_number?: string | null;
 	exp?: number;
+	aud?: string;
+	iss?: string;
+	firebase?: { tenant?: string };
 };
 
 type InternalAdapter = GenericEndpointContext["context"]["internalAdapter"];
@@ -126,11 +129,102 @@ const findFirebaseAccountOwner = async (
 	};
 };
 
+/**
+ * Firebase Admin's user lookup, used to tell whether a Firebase user still
+ * exists. An instance scoped to an Identity Platform tenant has `tenantId`.
+ */
+type FirebaseUserLookup = {
+	getUser: (uid: string) => Promise<unknown>;
+	tenantId?: string | null;
+};
+
+/**
+ * The claims of a Firebase ID token the plugin stored on an account row after
+ * verifying it. They aren't verified again: the token has long expired.
+ */
+const claimsOfStoredIdToken = (
+	idToken: string | null | undefined,
+): Record<string, unknown> | undefined => {
+	try {
+		const payload = idToken?.split(".")[1];
+		const claims: unknown = payload
+			? JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))
+			: undefined;
+		return claims !== null && typeof claims === "object"
+			? (claims as Record<string, unknown>)
+			: undefined;
+	} catch {
+		return undefined;
+	}
+};
+
+/**
+ * Whether a user matched only by a phone sign-in's fallback email is that phone
+ * number's own earlier account, e.g. after its Firebase user was deleted and the
+ * number signed up again under a new UID. Nobody can verify a fallback email,
+ * so the phone number has to tie the two together. Every account on the user
+ * must be a Firebase account whose stored ID token is this project's token for
+ * that UID and carried the same number, and whose Firebase user no longer
+ * exists. A password account, a token for another project, UID or number, or
+ * a Firebase user that still exists could belong to whoever registered the
+ * address first.
+ */
+const isEarlierAccountOfPhoneNumber = async (
+	internalAdapter: InternalAdapter,
+	firebaseAdminAuth: FirebaseUserLookup,
+	userId: string,
+	decodedToken: DecodedToken,
+): Promise<boolean> => {
+	const tenant = decodedToken.firebase?.tenant ?? null;
+	if (
+		!decodedToken.phone_number ||
+		!decodedToken.aud ||
+		!decodedToken.iss ||
+		// getUser only sees the users of the tenant (or project) it's scoped to.
+		tenant !== (firebaseAdminAuth.tenantId ?? null)
+	) {
+		return false;
+	}
+	const accounts = await internalAdapter.findAccounts(userId);
+	const isEarlierTokenOfNumber = (account: Account) => {
+		const claims = claimsOfStoredIdToken(account.idToken);
+		return (
+			account.providerId === FIREBASE_PROVIDER_ID &&
+			claims?.sub === account.accountId &&
+			claims.aud === decodedToken.aud &&
+			claims.iss === decodedToken.iss &&
+			claims.phone_number === decodedToken.phone_number &&
+			((claims.firebase as { tenant?: unknown } | undefined)?.tenant ??
+				null) === tenant
+		);
+	};
+	if (accounts.length === 0 || !accounts.every(isEarlierTokenOfNumber)) {
+		return false;
+	}
+	for (const account of accounts) {
+		try {
+			await firebaseAdminAuth.getUser(account.accountId);
+			// Still exists, so it's someone's current Firebase user, not a past one.
+			return false;
+		} catch (error) {
+			if (
+				(error as { code?: unknown } | null)?.code !== "auth/user-not-found"
+			) {
+				return false;
+			}
+		}
+	}
+	return true;
+};
+
 export const createOrUpdateUser = async (
 	ctx: GenericEndpointContext,
 	decodedToken: DecodedToken,
 	idToken: string,
 	sessionExpiresInDays: number = 7,
+	// Set by sign-in-with-phone when `decodedToken.email` came from
+	// `getPhoneUserFallbackEmail` because the token carried no email.
+	phoneFallbackEmail?: { firebaseAdminAuth: FirebaseUserLookup },
 ): Promise<AuthResponse> => {
 	const { internalAdapter } = ctx.context;
 	const keyedByIssuer = accountsKeyedByIssuer(ctx.context.tables);
@@ -146,13 +240,23 @@ export const createOrUpdateUser = async (
 	if (!user && decodedToken.email) {
 		const found = await internalAdapter.findUserByEmail(decodedToken.email);
 		if (found?.user) {
+			// A fallback email can't be verified, but the phone number can show the
+			// match is that number's own earlier account.
+			const provenByPhoneNumber =
+				phoneFallbackEmail !== undefined &&
+				(await isEarlierAccountOfPhoneNumber(
+					internalAdapter,
+					phoneFallbackEmail.firebaseAdminAuth,
+					found.user.id,
+					decodedToken,
+				));
 			// SECURITY: never attach a Firebase identity to an existing account
 			// unless the token proves control of the email. Firebase ID tokens can
 			// be minted for ANY address via the public Identity Toolkit signUp
 			// (email_verified=false); matching one onto an existing user and then
 			// linkAccount()+createSession() below is an account-takeover primitive,
 			// and it also bypasses Better Auth's own account-linking verification.
-			if (decodedToken.email_verified !== true) {
+			if (!provenByPhoneNumber && decodedToken.email_verified !== true) {
 				throw new APIError("UNAUTHORIZED", {
 					message:
 						"Verify your email address before signing in with this method.",
@@ -165,11 +269,23 @@ export const createOrUpdateUser = async (
 			const requireLocalEmailVerified =
 				ctx.context.options?.account?.accountLinking
 					?.requireLocalEmailVerified ?? true;
-			if (requireLocalEmailVerified && !found.user.emailVerified) {
+			if (
+				!provenByPhoneNumber &&
+				requireLocalEmailVerified &&
+				!found.user.emailVerified
+			) {
 				throw new APIError("UNAUTHORIZED", {
 					message:
 						"Verify the email address of the existing account before signing in with this method.",
 				});
+			}
+			if (provenByPhoneNumber) {
+				// The number can have changed hands since that account last signed in:
+				// end the sessions its earlier Firebase users opened.
+				const sessions = await internalAdapter.listSessions(found.user.id);
+				if (sessions.length > 0) {
+					await internalAdapter.deleteSessions(sessions.map((s) => s.token));
+				}
 			}
 			user = found.user;
 		}
@@ -446,6 +562,7 @@ export const firebaseAuthPlugin = (
 					{ ...decodedToken, email: resolvedEmail },
 					idToken,
 					sessionExpiresInDays,
+					decodedToken.email ? undefined : { firebaseAdminAuth: adminAuth },
 				);
 				return ctx.json(result);
 			},

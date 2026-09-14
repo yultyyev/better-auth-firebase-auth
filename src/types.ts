@@ -24,6 +24,14 @@ export interface FirebaseAuthPluginOptions {
 	 * no email on their Firebase account. The returned value is stored as the
 	 * Better Auth user email and must be unique per user.
 	 *
+	 * When a Better Auth user already has the returned email, the phone sign-in
+	 * is linked to it only if every account on that user is a Firebase account
+	 * whose last ID token carried the same number and whose Firebase user no
+	 * longer exists (e.g. it was deleted and the number signed up again under a
+	 * new UID); that sign-in ends the user's other sessions. Otherwise it is
+	 * refused with 401, so a value that isn't unique per phone number, such as a
+	 * constant, refuses other phone users instead of merging them.
+	 *
 	 * Defaults to `${uid}@firebase.local`.
 	 */
 	getPhoneUserFallbackEmail?: (params: {

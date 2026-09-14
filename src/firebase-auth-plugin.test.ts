@@ -32,9 +32,29 @@ vi.mock("better-auth/cookies", () => ({
 	setSessionCookie: vi.fn().mockResolvedValue(undefined),
 }));
 
+/** An unsigned JWT with `claims`, standing in for a Firebase ID token the mocked verifyIdToken accepts. */
+const idTokenWithClaims = (claims: Record<string, unknown>) =>
+	`e30.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.signature`;
+
+/** The error Firebase Admin's getUser throws for a user that doesn't exist. */
+const userNotFound = () =>
+	Object.assign(
+		new Error(
+			"There is no user record corresponding to the provided identifier.",
+		),
+		{ code: "auth/user-not-found" },
+	);
+
+/** The `aud` and `iss` of this test project's Firebase ID tokens. */
+const firebaseProject = {
+	aud: "test-project",
+	iss: "https://securetoken.google.com/test-project",
+};
+
 describe("firebaseAuthPlugin", () => {
 	const mockAdminAuth = {
 		verifyIdToken: vi.fn(),
+		getUser: vi.fn(),
 	};
 
 	const mockInternalAdapter = {
@@ -48,6 +68,7 @@ describe("firebaseAuthPlugin", () => {
 		updateAccount: vi.fn(),
 		listSessions: vi.fn(),
 		deleteSessions: vi.fn(),
+		findAccounts: vi.fn(),
 	};
 
 	const mockDecodedToken = {
@@ -101,8 +122,10 @@ describe("firebaseAuthPlugin", () => {
 		mockInternalAdapter.updateAccount.mockResolvedValue(mockAccount);
 		mockInternalAdapter.listSessions.mockResolvedValue([]);
 		mockInternalAdapter.deleteSessions.mockResolvedValue(undefined);
+		mockInternalAdapter.findAccounts.mockResolvedValue([]);
 		mockInternalAdapter.createSession.mockResolvedValue(mockSession);
 		mockAdminAuth.verifyIdToken.mockResolvedValue(mockDecodedToken);
+		mockAdminAuth.getUser.mockResolvedValue({});
 		vi.mocked(setSessionCookie).mockResolvedValue(undefined);
 	});
 
@@ -645,6 +668,211 @@ describe("firebaseAuthPlugin", () => {
 			});
 		});
 
+		describe("phone sign-in with a fallback email", () => {
+			const phoneNumber = "+15555550100";
+			const phoneToken = {
+				uid: "new-phone-uid",
+				email: `${phoneNumber}@myapp.example`,
+				phone_number: phoneNumber,
+				...firebaseProject,
+				exp: Math.floor(Date.now() / 1000) + 3600,
+			};
+			const earlierTokenClaims = {
+				sub: "deleted-phone-uid",
+				phone_number: phoneNumber,
+				...firebaseProject,
+			};
+			const earlierPhoneAccount = {
+				...mockAccount,
+				id: "earlier-phone-account",
+				accountId: "deleted-phone-uid",
+				idToken: idTokenWithClaims(earlierTokenClaims),
+			};
+			const phoneFallbackEmail = { firebaseAdminAuth: mockAdminAuth };
+			const withEarlierToken = (claims: Record<string, unknown>) => () =>
+				mockInternalAdapter.findAccounts.mockResolvedValue([
+					{
+						...earlierPhoneAccount,
+						idToken: idTokenWithClaims({ ...earlierTokenClaims, ...claims }),
+					},
+				]);
+
+			beforeEach(() => {
+				mockInternalAdapter.findUserByEmail.mockResolvedValue({
+					user: { ...mockUser, email: phoneToken.email, emailVerified: false },
+					accounts: [],
+				});
+				mockInternalAdapter.findAccounts.mockResolvedValue([
+					earlierPhoneAccount,
+				]);
+				mockAdminAuth.getUser.mockRejectedValue(userNotFound());
+			});
+
+			it("should link to the same phone number's earlier account once its Firebase user no longer exists, ending that account's sessions", async () => {
+				mockInternalAdapter.listSessions.mockResolvedValue([
+					{ token: "earlier-session" },
+				]);
+
+				const ctx = createMockCtx();
+				await createOrUpdateUser(
+					ctx as any,
+					phoneToken,
+					"id-token",
+					7,
+					phoneFallbackEmail,
+				);
+
+				expect(mockAdminAuth.getUser).toHaveBeenCalledWith("deleted-phone-uid");
+				expect(mockInternalAdapter.createUser).not.toHaveBeenCalled();
+				expect(mockInternalAdapter.deleteSessions).toHaveBeenCalledWith([
+					"earlier-session",
+				]);
+				expect(mockInternalAdapter.linkAccount).toHaveBeenCalledWith(
+					expect.objectContaining({
+						accountId: "new-phone-uid",
+						userId: "user-123",
+					}),
+				);
+				expect(mockInternalAdapter.createSession).toHaveBeenCalledOnce();
+			});
+
+			it("should link a tenant's phone number when the Admin instance is scoped to that tenant", async () => {
+				withEarlierToken({ firebase: { tenant: "tenant-a" } })();
+
+				const ctx = createMockCtx();
+				await createOrUpdateUser(
+					ctx as any,
+					{ ...phoneToken, firebase: { tenant: "tenant-a" } },
+					"id-token",
+					7,
+					{ firebaseAdminAuth: { ...mockAdminAuth, tenantId: "tenant-a" } },
+				);
+
+				expect(mockInternalAdapter.linkAccount).toHaveBeenCalledWith(
+					expect.objectContaining({ userId: "user-123" }),
+				);
+			});
+
+			it("should refuse a tenant's token when the Admin instance isn't scoped to that tenant", async () => {
+				withEarlierToken({ firebase: { tenant: "tenant-a" } })();
+
+				const ctx = createMockCtx();
+				await expect(
+					createOrUpdateUser(
+						ctx as any,
+						{ ...phoneToken, firebase: { tenant: "tenant-a" } },
+						"id-token",
+						7,
+						phoneFallbackEmail,
+					),
+				).rejects.toMatchObject({ status: "UNAUTHORIZED" });
+				expect(mockAdminAuth.getUser).not.toHaveBeenCalled();
+			});
+
+			it.each([
+				[
+					"its Firebase user still exists",
+					() =>
+						mockAdminAuth.getUser.mockResolvedValue({
+							uid: "deleted-phone-uid",
+						}),
+				],
+				[
+					"the Firebase user lookup fails",
+					() =>
+						mockAdminAuth.getUser.mockRejectedValue(
+							Object.assign(new Error("Failed to determine service account"), {
+								code: "app/invalid-credential",
+							}),
+						),
+				],
+				[
+					"another of its Firebase users still exists",
+					() => {
+						mockInternalAdapter.findAccounts.mockResolvedValue([
+							earlierPhoneAccount,
+							{
+								...earlierPhoneAccount,
+								id: "live-phone-account",
+								accountId: "live-phone-uid",
+								idToken: idTokenWithClaims({
+									...earlierTokenClaims,
+									sub: "live-phone-uid",
+								}),
+							},
+						]);
+						mockAdminAuth.getUser.mockImplementation(async (uid: string) => {
+							if (uid === "live-phone-uid") return { uid };
+							throw userNotFound();
+						});
+					},
+				],
+				[
+					"its last ID token carried another phone number",
+					withEarlierToken({ phone_number: "+15555550199" }),
+				],
+				[
+					"its last ID token carried no phone number",
+					withEarlierToken({ phone_number: undefined }),
+				],
+				[
+					"its last ID token was for another UID",
+					withEarlierToken({ sub: "another-uid" }),
+				],
+				[
+					"its last ID token was for another Firebase project",
+					withEarlierToken({
+						aud: "another-project",
+						iss: "https://securetoken.google.com/another-project",
+					}),
+				],
+				[
+					"its last ID token was for a tenant",
+					withEarlierToken({ firebase: { tenant: "tenant-a" } }),
+				],
+				[
+					"the user also has a password account",
+					() =>
+						mockInternalAdapter.findAccounts.mockResolvedValue([
+							earlierPhoneAccount,
+							{
+								...mockAccount,
+								id: "credential-account",
+								providerId: "credential",
+								accountId: "user-123",
+							},
+						]),
+				],
+				[
+					"the user has no accounts",
+					() => mockInternalAdapter.findAccounts.mockResolvedValue([]),
+				],
+			])("should refuse when %s", async (_, arrange) => {
+				arrange();
+
+				const ctx = createMockCtx();
+				await expect(
+					createOrUpdateUser(
+						ctx as any,
+						phoneToken,
+						"id-token",
+						7,
+						phoneFallbackEmail,
+					),
+				).rejects.toMatchObject({ status: "UNAUTHORIZED" });
+				expect(mockInternalAdapter.linkAccount).not.toHaveBeenCalled();
+				expect(mockInternalAdapter.createSession).not.toHaveBeenCalled();
+			});
+
+			it("should not check the phone number for an email the token carried", async () => {
+				const ctx = createMockCtx();
+				await expect(
+					createOrUpdateUser(ctx as any, phoneToken, "id-token"),
+				).rejects.toMatchObject({ status: "UNAUTHORIZED" });
+				expect(mockAdminAuth.getUser).not.toHaveBeenCalled();
+			});
+		});
+
 		describe("token without email", () => {
 			const tokenNoEmail = {
 				uid: "firebase-uid-no-email",
@@ -1056,6 +1284,7 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 
 	const mockAdminAuth = {
 		verifyIdToken: vi.fn(),
+		getUser: vi.fn(),
 	};
 
 	const mockDecodedToken = {
@@ -1070,6 +1299,7 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockAdminAuth.verifyIdToken.mockResolvedValue(mockDecodedToken);
+		mockAdminAuth.getUser.mockResolvedValue({});
 		vi.mocked(setSessionCookie).mockResolvedValue(undefined);
 	});
 
@@ -1665,6 +1895,138 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		const data2 = res2.data as any;
 		expect(data1.user.id).toBe(data2.user.id);
 		expect(data1.user.email).toBe(data2.user.email);
+	});
+
+	it("should sign a phone number back in to its account through its fallback email after its Firebase user is recreated", async () => {
+		mockAdminAuth.getUser.mockRejectedValue(userNotFound());
+		const { client, auth } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({
+						firebaseAdminAuth: mockAdminAuth as any,
+						getPhoneUserFallbackEmail: ({ phoneNumber }) =>
+							`${phoneNumber}@myapp.example`,
+					}),
+				],
+			},
+			{ disableTestUser: true },
+		);
+		const signIn = async (uid: string): Promise<any> => {
+			mockAdminAuth.verifyIdToken.mockResolvedValue({
+				uid,
+				phone_number: "+15555550142",
+				...firebaseProject,
+				exp: Math.floor(Date.now() / 1000) + 3600,
+			});
+			return client.$fetch("/firebase-auth/sign-in-with-phone", {
+				method: "POST",
+				body: {
+					idToken: idTokenWithClaims({
+						sub: uid,
+						phone_number: "+15555550142",
+						...firebaseProject,
+					}),
+				},
+			});
+		};
+
+		const first = await signIn("deleted-phone-uid");
+		// The Firebase user is deleted and the number signs up again: a new UID.
+		const second = await signIn("recreated-phone-uid");
+
+		expect(second.data?.user.id).toBe(first.data.user.id);
+		expect(mockAdminAuth.getUser).toHaveBeenCalledWith("deleted-phone-uid");
+		// The session the deleted Firebase user opened doesn't survive the link.
+		const ctx = await (auth as any).$context;
+		const sessions = await ctx.adapter.findMany({
+			model: "session",
+			where: [{ field: "userId", value: second.data.user.id }],
+		});
+		expect(sessions.map((s: any) => s.token)).toEqual([
+			second.data.session.token,
+		]);
+	});
+
+	it("should not link a phone sign-in into an account that registered its fallback email with a password", async () => {
+		mockAdminAuth.getUser.mockRejectedValue(userNotFound());
+		const { client, auth } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({
+						firebaseAdminAuth: mockAdminAuth as any,
+						getPhoneUserFallbackEmail: ({ phoneNumber }) =>
+							`${phoneNumber}@myapp.example`,
+					}),
+				],
+			},
+			{ disableTestUser: true },
+		);
+		const squatter = await auth.api.signUpEmail({
+			body: {
+				email: "+15555550143@myapp.example",
+				password: "squatter-password-123",
+				name: "Squatter",
+			},
+		});
+		mockAdminAuth.verifyIdToken.mockResolvedValue({
+			uid: "victim-phone-uid",
+			phone_number: "+15555550143",
+			...firebaseProject,
+			exp: Math.floor(Date.now() / 1000) + 3600,
+		});
+
+		const res = await client.$fetch("/firebase-auth/sign-in-with-phone", {
+			method: "POST",
+			body: { idToken: idTokenWithClaims({ phone_number: "+15555550143" }) },
+		});
+
+		expect((res.error as any)?.status).toBe(401);
+		const ctx = await (auth as any).$context;
+		const accounts = await ctx.adapter.findMany({
+			model: "account",
+			where: [{ field: "userId", value: squatter.user.id }],
+		});
+		expect(accounts.map((a: any) => a.providerId)).toEqual(["credential"]);
+	});
+
+	it("should refuse, not merge, other phone numbers when the fallback email is not unique", async () => {
+		// Only the phone number can refuse: the first Firebase user looks deleted.
+		mockAdminAuth.getUser.mockRejectedValue(userNotFound());
+		const { client } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({
+						firebaseAdminAuth: mockAdminAuth as any,
+						getPhoneUserFallbackEmail: () => "phone-user@myapp.example",
+					}),
+				],
+			},
+			{ disableTestUser: true },
+		);
+		const signIn = (uid: string, phoneNumber: string) => {
+			mockAdminAuth.verifyIdToken.mockResolvedValue({
+				uid,
+				phone_number: phoneNumber,
+				...firebaseProject,
+				exp: Math.floor(Date.now() / 1000) + 3600,
+			});
+			return client.$fetch("/firebase-auth/sign-in-with-phone", {
+				method: "POST",
+				body: {
+					idToken: idTokenWithClaims({
+						sub: uid,
+						phone_number: phoneNumber,
+						...firebaseProject,
+					}),
+				},
+			});
+		};
+
+		const first = await signIn("phone-uid-a", "+15555550144");
+		const second = await signIn("phone-uid-b", "+15555550145");
+
+		expect((first.data as any)?.user.email).toBe("phone-user@myapp.example");
+		expect((second.error as any)?.status).toBe(401);
 	});
 
 	it("should re-parent an orphaned account when the user row was deleted", async () => {

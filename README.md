@@ -36,6 +36,8 @@ Better Auth owns the app session from step 5 onward. Firebase is used only as an
 
 A Firebase sign-in is linked to an existing Better Auth user with the same email only when both the token's email and that user's email are verified. Set `account.accountLinking.requireLocalEmailVerified: false` to drop the second check, as in Better Auth's own account linking.
 
+A phone sign-in without an email uses the address from `getPhoneUserFallbackEmail`, which nobody can verify. If a Better Auth user already has that address, the sign-in is linked to it only when every account on that user is a Firebase account whose last ID token carried the same number and whose Firebase user no longer exists, as after a Firebase user is deleted and the number signs up again under a new UID. That sign-in ends the user's other sessions. The plugin checks with the Admin SDK's `getUser`, so it needs credentials that can read users, and with Identity Platform tenants an Admin instance scoped to the token's tenant. Any other match is refused with 401, which is also what a fallback that isn't unique per phone number (a constant, say) gets instead of merging phone users. With a fallback built from the phone number, delete the Better Auth user whenever you delete its Firebase user; otherwise whoever gets the number next signs in to that account.
+
 ---
 
 ## Supported Authentication Methods
