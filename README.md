@@ -11,7 +11,7 @@ Firebase verifies identity. Better Auth owns the session. No Twilio required for
 
 - **Install:** `pnpm add better-auth-firebase-auth firebase-admin firebase better-auth`
 
-> **Upgrading to Better Auth 1.7 with existing users?** Run the one-time `account.issuer` backfill before your first deploy on 1.7 — see [Upgrading an existing app to Better Auth 1.7](#upgrading-an-existing-app-to-better-auth-17).
+> **Upgrading to Better Auth 1.7?** Go straight to 1.7.3 or later — Firebase account rows need no backfill there. Apps that already ran 1.7.0 – 1.7.2 have cleanup to do — see [Upgrading an existing app to Better Auth 1.7](#upgrading-an-existing-app-to-better-auth-17).
 
 ---
 
@@ -312,7 +312,7 @@ firebaseAuthPlugin({
 | `sessionExpiresInDays` | `number` | `7` | Better Auth session lifetime. |
 | `passwordResetUrl` | `string` | — | Custom URL Firebase appends the reset code to. |
 | `getPhoneUserFallbackEmail` | `({ uid, phoneNumber }) => string` | `${uid}@firebase.local` | Generate a stable synthetic email for phone-only users. |
-| `migrationChecks` | `boolean` | `true` | Warn at startup while Firebase account rows still lack the Better Auth 1.7 `issuer` (two `count` reads per process; skipped on Better Auth < 1.7). |
+| `migrationChecks` | `boolean` | `true` | Warn at startup while Firebase account rows still lack the `issuer` that Better Auth 1.7.0 – 1.7.2 require (two `count` reads per process; skipped on 1.5 – 1.6 and 1.7.3+). |
 
 ---
 
@@ -338,20 +338,38 @@ Both approaches add phone authentication to a Better Auth app. The right choice 
 
 ## Better Auth Compatibility
 
-One build of the plugin supports every Better Auth release since 1.5. The plugin detects the account-lookup API at runtime, and CI runs the test suite against the 1.5, 1.6, and 1.7 lines.
+One build of the plugin supports every Better Auth release since 1.5. The plugin detects at runtime how the installed version keys accounts, and CI runs the test suite against 1.5, 1.6, 1.7.2, and the latest 1.7 release.
 
 | Better Auth | Status |
 |---|---|
-| 1.7.x | Supported — accounts keyed by `(issuer, accountId)` |
+| 1.7.3+ | Supported — accounts keyed by `(providerId, accountId)`, as in 1.6 |
+| 1.7.0 – 1.7.2 | Supported — accounts keyed by `(issuer, accountId)`; existing rows need a one-time issuer backfill |
 | 1.5.x – 1.6.x | Supported — accounts keyed by `(providerId, accountId)` |
 | < 1.5 | Not supported |
 
 ### Upgrading an existing app to Better Auth 1.7
 
-Better Auth 1.7 adds a required `issuer` column to the `account` table and looks accounts up by `(issuer, accountId)` — there is no fallback to `providerId`. `npx auth migrate` refuses to add a `NOT NULL` column to a populated table, so every existing install needs a one-time backfill. This is part of the [Better Auth 1.7 upgrade guide](https://better-auth.com/docs/guides/1-7-upgrade-guide#account-identity-is-scoped-by-issuer); the plugin-specific part is the value to use for Firebase rows:
+Upgrade to **Better Auth 1.7.3 or later**. It identifies accounts by `(providerId, accountId)`, as 1.6 did, so Firebase account rows need no migration and no backfill. Better Auth 1.7.0 – 1.7.2 keyed accounts by a required `issuer` column instead, and 1.7.3 reverted that — see [Account identity keeps the provider key](https://better-auth.com/docs/guides/1-7-upgrade-guide#account-identity-keeps-the-provider-key) in the Better Auth upgrade guide.
+
+`npx better-auth-firebase-auth backfill-account-issuers` and `backfillAccountIssuers(auth)` are not needed on 1.7.3+: they report that no backfill is needed (`issuerRequired: false`) and write nothing.
+
+#### If your database ran Better Auth 1.7.0 – 1.7.2
+
+1. **Relax the `issuer` column.** Better Auth 1.7.3+ no longer writes `issuer`, so a `NOT NULL` column rejects every new sign-up and account link. Follow the upgrade guide's cleanup: drop the `account_issuer_accountId_uidx` index, then relax or drop the column.
+2. **Remove duplicate Firebase account rows.** If users signed in on 1.7.0 – 1.7.2 before their rows were backfilled, the plugin linked a second row for the same Firebase UID next to the old one. Better Auth 1.7.3+ refuses to choose between them, so those users cannot sign in (`Multiple accounts match the same accountId for provider "firebase"`). Find them with:
+
+   ```sql
+   SELECT "accountId", count(*) FROM account WHERE "providerId" = 'firebase' GROUP BY "accountId" HAVING count(*) > 1;
+   ```
+
+   When both rows belong to the same user, delete the older one. When they belong to different users, decide which user keeps the Firebase login and delete the other row.
+
+#### Staying on Better Auth 1.7.0 – 1.7.2
+
+These versions look accounts up by `(issuer, accountId)` — there is no fallback to `providerId`. `npx auth migrate` refuses to add a `NOT NULL` column to a populated table, so every existing install needs a one-time backfill. The plugin-specific part is the value to use for Firebase rows:
 
 1. Add `issuer` to `account` as a **nullable** column.
-2. Backfill Firebase-linked rows (and any other providers you use, per the upgrade guide) — three equivalent ways, all idempotent, all repairing rows a MySQL `auth migrate` corrupted to an empty string:
+2. Backfill Firebase-linked rows (and any other providers you use) — three equivalent ways, all idempotent, all repairing rows a MySQL `auth migrate` corrupted to an empty string:
 
    **CLI** — like `npx auth migrate`, it finds and imports the file exporting your `betterAuth(...)` instance and runs the backfill through its database adapter (the plugin holds no database credentials of its own):
 
@@ -382,7 +400,7 @@ Better Auth 1.7 adds a required `issuer` column to the `account` table and looks
 
 3. Make `issuer` `NOT NULL` and add the unique `(issuer, accountId)` index (`npx auth migrate` / `npx auth generate` can do this step once no row is empty).
 
-The issuer value is exported as `FIREBASE_ACCOUNT_ISSUER` from `better-auth-firebase-auth/server` for use in migration scripts. New rows written on Better Auth 1.7 already carry it.
+The issuer value is exported as `FIREBASE_ACCOUNT_ISSUER` from `better-auth-firebase-auth/server` for use in migration scripts. New rows written on Better Auth 1.7.0 – 1.7.2 already carry it.
 
 **If you forget:** the plugin checks on startup and logs one `[better-auth-firebase-auth]` warning with the exact command whenever Better Auth expects `issuer` but Firebase account rows lack it (two `count` reads per process; `migrationChecks: false` disables it). Sign-in itself keeps working — the plugin falls back to matching by email and re-links — but until the backfill runs the old row stays orphaned and, on MySQL, `auth migrate` may have silently filled `issuer` with an empty string (see the upgrade guide's corruption check).
 
