@@ -139,7 +139,21 @@ export const createOrUpdateUser = async (
 
 	if (!user && decodedToken.email) {
 		const found = await internalAdapter.findUserByEmail(decodedToken.email);
-		user = found?.user ?? null;
+		if (found?.user) {
+			// SECURITY: never attach a Firebase identity to an existing account
+			// unless the token proves control of the email. Firebase ID tokens can
+			// be minted for ANY address via the public Identity Toolkit signUp
+			// (email_verified=false); matching one onto an existing user and then
+			// linkAccount()+createSession() below is an account-takeover primitive,
+			// and it also bypasses Better Auth's own account-linking verification.
+			if (decodedToken.email_verified !== true) {
+				throw new APIError("UNAUTHORIZED", {
+					message:
+						"Verify your email address before signing in with this method.",
+				});
+			}
+			user = found.user;
+		}
 	}
 
 	if (!user) {

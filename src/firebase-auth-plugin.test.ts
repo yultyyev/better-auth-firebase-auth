@@ -497,6 +497,82 @@ describe("firebaseAuthPlugin", () => {
 			});
 		});
 
+		describe("security: unverified email must not match an existing user", () => {
+			const unverifiedToken = { ...mockDecodedToken, email_verified: false };
+
+			it("should refuse with UNAUTHORIZED when an unverified token matches an existing user by email (better-auth < 1.7)", async () => {
+				mockInternalAdapter.findOAuthUser.mockResolvedValue(null);
+				mockInternalAdapter.findUserByEmail.mockResolvedValue({
+					user: mockUser,
+					accounts: [],
+				});
+
+				const ctx = createMockCtx();
+				await expect(
+					createOrUpdateUser(ctx as any, unverifiedToken, "id-token-abc"),
+				).rejects.toMatchObject({ status: "UNAUTHORIZED" });
+
+				// No takeover: never link the attacker's UID or mint a session.
+				expect(mockInternalAdapter.linkAccount).not.toHaveBeenCalled();
+				expect(mockInternalAdapter.updateAccount).not.toHaveBeenCalled();
+				expect(mockInternalAdapter.createSession).not.toHaveBeenCalled();
+				expect(setSessionCookie).not.toHaveBeenCalled();
+			});
+
+			it("should treat email_verified undefined as unverified", async () => {
+				const { email_verified: _drop, ...noVerifiedFlag } = mockDecodedToken;
+				mockInternalAdapter.findUserByEmail.mockResolvedValue({
+					user: mockUser,
+					accounts: [],
+				});
+
+				const ctx = createMockCtx();
+				await expect(
+					createOrUpdateUser(ctx as any, noVerifiedFlag as any, "id-token"),
+				).rejects.toMatchObject({ status: "UNAUTHORIZED" });
+				expect(mockInternalAdapter.createSession).not.toHaveBeenCalled();
+			});
+
+			it("should still create a fresh user when an unverified token has NO existing account (no hijack path)", async () => {
+				mockInternalAdapter.findOAuthUser.mockResolvedValue(null);
+				mockInternalAdapter.findUserByEmail.mockResolvedValue(null);
+
+				const ctx = createMockCtx();
+				await createOrUpdateUser(ctx as any, unverifiedToken, "id-token-abc");
+
+				expect(mockInternalAdapter.createUser).toHaveBeenCalledWith(
+					expect.objectContaining({ emailVerified: false }),
+					expect.any(Object),
+				);
+				expect(mockInternalAdapter.linkAccount).toHaveBeenCalledOnce();
+				expect(mockInternalAdapter.createSession).toHaveBeenCalledOnce();
+			});
+
+			it("should refuse on better-auth >= 1.7 too (findAccountOwnerByKey adapter)", async () => {
+				const { findOAuthUser: _legacy, ...modernMethods } =
+					mockInternalAdapter;
+				const modernAdapter = {
+					...modernMethods,
+					findAccountOwnerByKey: vi.fn().mockResolvedValue(null),
+				};
+				modernAdapter.findUserByEmail.mockResolvedValue({
+					user: mockUser,
+					accounts: [],
+				});
+				const ctx = {
+					context: { internalAdapter: modernAdapter },
+					body: {},
+					json: vi.fn(),
+				};
+
+				await expect(
+					createOrUpdateUser(ctx as any, unverifiedToken, "id-token-abc"),
+				).rejects.toMatchObject({ status: "UNAUTHORIZED" });
+				expect(modernAdapter.linkAccount).not.toHaveBeenCalled();
+				expect(modernAdapter.createSession).not.toHaveBeenCalled();
+			});
+		});
+
 		describe("token without email", () => {
 			const tokenNoEmail = {
 				uid: "firebase-uid-no-email",
@@ -1034,6 +1110,51 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 
 		const data = res.data as any;
 		expect(data.user.id).toBe(preExistingUserId);
+	});
+
+	it("should NOT take over an existing account with an unverified Firebase token", async () => {
+		// The attack: mint a project token for a victim's email via the public
+		// Identity Toolkit signUp (email_verified=false), then sign in.
+		mockAdminAuth.verifyIdToken.mockResolvedValue({
+			...mockDecodedToken,
+			uid: "attacker-uid",
+			email_verified: false,
+		});
+
+		const { client, auth } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({ firebaseAdminAuth: mockAdminAuth as any }),
+				],
+			},
+			{ disableTestUser: true },
+		);
+
+		const victim = await auth.api.signUpEmail({
+			body: {
+				email: "integration@example.com",
+				password: "victim-password-123",
+				name: "Victim",
+			},
+		});
+
+		const res = await client.$fetch("/firebase-auth/sign-in-with-google", {
+			method: "POST",
+			body: { idToken: "attacker-token" },
+		});
+
+		expect(res.error).toBeDefined();
+		expect((res.error as any).status).toBe(401);
+
+		// The victim's account is untouched: no Firebase account linked to it.
+		const ctx = await (auth as any).$context;
+		const accounts = await ctx.adapter.findMany({
+			model: "account",
+			where: [{ field: "userId", value: victim.user.id }],
+		});
+		expect(
+			accounts.some((a: any) => a.providerId === "firebase"),
+		).toBe(false);
 	});
 
 	it("should handle token without email", async () => {
