@@ -445,6 +445,10 @@ export const firebaseAuthPlugin = (
 					);
 					return ctx.json(result);
 				} catch (error) {
+					// Refusals from createOrUpdateUser already carry their own message.
+					if (error instanceof APIError) {
+						throw error;
+					}
 					if (error instanceof Error) {
 						throw new APIError("UNAUTHORIZED", {
 							message: `Firebase token verification failed: ${error.message}`,
@@ -520,6 +524,10 @@ export const firebaseAuthPlugin = (
 					);
 					return ctx.json(result);
 				} catch (error) {
+					// Refusals from createOrUpdateUser already carry their own message.
+					if (error instanceof APIError) {
+						throw error;
+					}
 					if (error instanceof Error) {
 						throw new APIError("UNAUTHORIZED", {
 							message: `Firebase token verification failed: ${error.message}`,
@@ -795,6 +803,10 @@ export const firebaseAuthPlugin = (
 
 				return ctx.json(result);
 			} catch (error) {
+				// Refusals from createOrUpdateUser already carry their own message.
+				if (error instanceof APIError) {
+					throw error;
+				}
 				if (error instanceof Error) {
 					throw new APIError("UNAUTHORIZED", {
 						message: `Firebase authentication failed: ${error.message}`,

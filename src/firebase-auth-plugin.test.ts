@@ -1,4 +1,8 @@
 import { setSessionCookie } from "better-auth/cookies";
+import {
+	createUserWithEmailAndPassword,
+	signInWithEmailAndPassword,
+} from "firebase/auth";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	backfillAccountIssuers,
@@ -1482,6 +1486,9 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 
 		expect(res.error).toBeDefined();
 		expect((res.error as any).status).toBe(401);
+		expect((res.error as any).message).toBe(
+			"Verify your email address before signing in with this method.",
+		);
 
 		// The victim's account is untouched: no Firebase account linked to it.
 		const ctx = await (auth as any).$context;
@@ -1534,6 +1541,9 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			});
 
 			expect((res.error as any)?.status).toBe(401);
+			expect((res.error as any)?.message).toBe(
+				"Verify your email address before signing in with this method.",
+			);
 			expect(res.data).toBeNull();
 			const victimAccounts = await ctx.adapter.findMany({
 				model: "account",
@@ -1545,6 +1555,75 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			expect(await ctx.adapter.findMany({ model: "session" })).toHaveLength(
 				sessionsBefore.length,
 			);
+		},
+	);
+
+	it.each(["/sign-in/email", "/sign-up/email"])(
+		"should not sign in to an existing user with an unverified email through the overrideEmailPasswordFlow %s hook",
+		async (path) => {
+			const { client, auth } = await getTestInstance(
+				{
+					plugins: [
+						firebaseAuthPlugin({
+							firebaseAdminAuth: mockAdminAuth as any,
+							overrideEmailPasswordFlow: true,
+							firebaseConfig: {
+								apiKey: "test-api-key",
+								authDomain: "test.firebaseapp.com",
+								projectId: "test-project",
+							},
+						}),
+					],
+				},
+				{ disableTestUser: true },
+			);
+			const ctx = await (auth as any).$context;
+			// Created directly: with the override on, sign-up itself goes through Firebase.
+			const victim = await ctx.internalAdapter.createUser({
+				email: "victim@example.com",
+				name: "Victim",
+				emailVerified: true,
+			});
+			const credential = {
+				user: { getIdToken: vi.fn().mockResolvedValue("attacker-token") },
+			};
+			vi.mocked(signInWithEmailAndPassword).mockResolvedValue(
+				credential as any,
+			);
+			vi.mocked(createUserWithEmailAndPassword).mockResolvedValue(
+				credential as any,
+			);
+			mockAdminAuth.verifyIdToken.mockResolvedValue({
+				uid: "attacker-uid",
+				email: "victim@example.com",
+				email_verified: false,
+				exp: Math.floor(Date.now() / 1000) + 3600,
+			});
+
+			const res = await client.$fetch(path, {
+				method: "POST",
+				body: {
+					email: "victim@example.com",
+					password: "attacker-password-123",
+					name: "Attacker",
+				},
+			});
+
+			expect(
+				path === "/sign-in/email"
+					? signInWithEmailAndPassword
+					: createUserWithEmailAndPassword,
+			).toHaveBeenCalledOnce();
+			expect((res.error as any)?.status).toBe(401);
+			expect((res.error as any)?.message).toBe(
+				"Verify your email address before signing in with this method.",
+			);
+			const accounts = await ctx.adapter.findMany({
+				model: "account",
+				where: [{ field: "userId", value: victim.id }],
+			});
+			expect(accounts).toEqual([]);
+			expect(await ctx.adapter.findMany({ model: "session" })).toEqual([]);
 		},
 	);
 
@@ -1584,6 +1663,9 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		});
 
 		expect((res.error as any)?.status).toBe(401);
+		expect((res.error as any)?.message).toBe(
+			"Verify the email address of the existing account before signing in with this method.",
+		);
 		const ctx = await (auth as any).$context;
 		const accounts = await ctx.adapter.findMany({
 			model: "account",
@@ -1716,7 +1798,10 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			body: { idToken: "bad-token" },
 		});
 
-		expect(res.error).toBeDefined();
+		expect((res.error as any)?.status).toBe(401);
+		expect((res.error as any)?.message).toBe(
+			"Firebase token verification failed: Invalid token",
+		);
 	});
 
 	it("should not register endpoints when serverSideOnly is true", async () => {
