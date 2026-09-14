@@ -40,6 +40,8 @@ A phone sign-in without an email uses the address from `getPhoneUserFallbackEmai
 
 A Firebase account row left behind when its user was deleted without cascading (for example on Firestore) moves to the user that UID signs in as next, or to one the checks above allow, and never to a user those checks refuse, since that would hand the UID someone else's account. On Better Auth 1.5 – 1.6 the first sign-in after such a delete adds a second row for the UID instead, and the old row moves on the sign-in after that. Delete one of the two before upgrading to Better Auth 1.7.3 or later, which refuses a UID with two rows.
 
+This plugin's account rows are keyed by the providerId `firebase`, or on Better Auth 1.7.0 – 1.7.2 by the issuer `local:oauth:firebase`. Providers from `@better-auth/sso` and `@better-auth/scim` share that account table, so one that claims either key could sign its logins in to Firebase users' accounts. The plugin refuses to register or update an SSO provider, or create a SCIM token, whose providerId, OIDC issuer or SAML IdP entity ID matches either key the way database collations compare them, ignoring case, accents, ignorable characters and the whitespace the SSO plugin trims or turns into spaces. If you created such a provider or token before, delete it.
+
 ---
 
 ## Supported Authentication Methods

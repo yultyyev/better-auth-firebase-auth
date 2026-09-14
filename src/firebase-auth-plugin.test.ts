@@ -1,3 +1,4 @@
+import { createAuthEndpoint } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import {
 	createUserWithEmailAndPassword,
@@ -53,6 +54,26 @@ const userNotFound = () =>
 const firebaseProject = {
 	aud: "test-project",
 	iss: "https://securetoken.google.com/test-project",
+};
+
+/**
+ * Stands in for the @better-auth/sso and @better-auth/scim endpoints that can
+ * claim a providerId or issuer, recording which ones a request reached.
+ */
+const foreignProviderEndpointsStub = (reached: (path: string) => void) => {
+	const stub = (path: string) =>
+		createAuthEndpoint(path, { method: "POST" }, async (ctx) => {
+			reached(path);
+			return ctx.json({ ok: true });
+		});
+	return {
+		id: "foreign-provider-endpoints-stub",
+		endpoints: {
+			registerSSOProvider: stub("/sso/register"),
+			updateSSOProvider: stub("/sso/update-provider"),
+			generateSCIMToken: stub("/scim/generate-token"),
+		},
+	};
 };
 
 describe("firebaseAuthPlugin", () => {
@@ -168,11 +189,14 @@ describe("firebaseAuthPlugin", () => {
 			);
 		});
 
-		it("should not register hooks when overrideEmailPasswordFlow is false", () => {
+		it("should register only the provider account-key guard when overrideEmailPasswordFlow is false", () => {
 			const plugin = firebaseAuthPlugin({
 				overrideEmailPasswordFlow: false,
 			});
-			expect(plugin.hooks).toBeUndefined();
+			expect(plugin.hooks?.before).toHaveLength(1);
+			expect(
+				plugin.hooks?.before?.[0]?.matcher({ path: "/sso/register" } as any),
+			).toBe(true);
 		});
 
 		it("should register hooks when overrideEmailPasswordFlow is true with config", () => {
@@ -186,7 +210,7 @@ describe("firebaseAuthPlugin", () => {
 			});
 			expect(plugin.hooks).toBeDefined();
 			expect(plugin.hooks?.before).toBeDefined();
-			expect(plugin.hooks?.before?.length).toBe(2);
+			expect(plugin.hooks?.before?.length).toBe(3);
 		});
 	});
 
@@ -1626,6 +1650,206 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			expect(await ctx.adapter.findMany({ model: "session" })).toEqual([]);
 		},
 	);
+
+	// Look-alikes that database collations compare as equal: UCA/ICU base-level
+	// equivalents (MySQL and MariaDB unicode, 0900 and uca1400 collations,
+	// Postgres ICU), utf8mb4_general_ci folds, and PAD SPACE's trailing spaces.
+	it.each([
+		...[
+			"firebase",
+			"Firebase",
+			"firebase ",
+			"fïrebase",
+			"ｆｉｒｅｂａｓｅ",
+			"fire\u200bbase",
+			"fire\u0001base",
+			"f\u0131rebase",
+			"fireba\u00dfe",
+			"fire\u0640base",
+			"\ua77cirebase",
+			"firebase\u00a0",
+			"fire\u06debase",
+			"firebase \u200b",
+			" firebase",
+		].map((providerId) => [
+			"/sso/register",
+			{ providerId, issuer: "https://idp.example.com" },
+		]),
+		["/sso/register", { providerId: "acme", issuer: "local:oauth:firebase" }],
+		["/sso/register", { providerId: "acme", issuer: "LOCAL:OAUTH:FIREBASE" }],
+		[
+			"/sso/register",
+			{ providerId: "acme", issuer: "local:oauth:fire\u0640base" },
+		],
+		[
+			"/sso/register",
+			{ providerId: "acme", issuer: "local:oaut\u0127:firebase" },
+		],
+		[
+			"/sso/register",
+			{
+				providerId: "acme",
+				samlConfig: {
+					idpMetadata: { entityID: "local:\u00f8auth:firebase" },
+				},
+			},
+		],
+		[
+			"/sso/register",
+			{
+				providerId: "acme",
+				samlConfig: {
+					idpMetadata: {
+						metadata:
+							'<EntityDescriptor entityID="local:oauth:fire&#x640;base"><IDPSSODescriptor/></EntityDescriptor>',
+					},
+				},
+			},
+		],
+		[
+			"/sso/register",
+			{
+				providerId: "acme",
+				samlConfig: { idpMetadata: { entityID: "local:oauth:firebase" } },
+			},
+		],
+		[
+			"/sso/register",
+			{
+				providerId: "acme",
+				samlConfig: {
+					idpMetadata: {
+						metadata:
+							'<EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata" entityID="local&#x3A;oauth&#x3a;fire&#98;ase"><IDPSSODescriptor/></EntityDescriptor>',
+					},
+				},
+			},
+		],
+		[
+			"/sso/update-provider",
+			{ providerId: "acme", issuer: "local:oauth:firebase" },
+		],
+		[
+			"/sso/update-provider",
+			{
+				providerId: "acme",
+				samlConfig: { idpMetadata: { entityID: "local:oauth:firebase" } },
+			},
+		],
+		// @better-auth/sso stores an issuer trimmed and without tabs or line
+		// breaks, and samlify reads those in a SAML entity ID as spaces.
+		["/sso/register", { providerId: "acme", issuer: " local:oauth:firebase" }],
+		["/sso/register", { providerId: "acme", issuer: "local:oauth:fire\tbase" }],
+		[
+			"/sso/register",
+			{ providerId: "acme", issuer: "\u2028local:oauth:firebase\n" },
+		],
+		[
+			"/sso/update-provider",
+			{ providerId: "acme", issuer: " local:oauth:firebase" },
+		],
+		[
+			"/sso/register",
+			{
+				providerId: "acme",
+				samlConfig: { idpMetadata: { entityID: "local:oauth:firebase\t" } },
+			},
+		],
+		[
+			"/sso/register",
+			{
+				providerId: "acme",
+				samlConfig: { idpMetadata: { entityID: "local:oauth:firebase\r\n" } },
+			},
+		],
+		["/scim/generate-token", { providerId: "firebase" }],
+		["/scim/generate-token", { providerId: "fire\u0640base" }],
+		["/scim/generate-token", { providerId: "Fire\u200bbase" }],
+	])(
+		"should refuse %s with %j, which would claim Firebase account rows",
+		async (path, body) => {
+			const reached = vi.fn();
+			const { client } = await getTestInstance(
+				{
+					plugins: [
+						firebaseAuthPlugin({ firebaseAdminAuth: mockAdminAuth as any }),
+						foreignProviderEndpointsStub(reached),
+					],
+				},
+				{ disableTestUser: true },
+			);
+
+			const res = await client.$fetch(path as string, { method: "POST", body });
+
+			expect((res.error as any)?.status).toBe(422);
+			expect(reached).not.toHaveBeenCalled();
+		},
+	);
+
+	it.each([
+		[
+			"/sso/register",
+			{ providerId: "acme", issuer: "https://idp.example.com" },
+		],
+		[
+			"/sso/register",
+			{
+				providerId: "acme-saml",
+				samlConfig: {
+					idpMetadata: { entityID: "https://idp.example.com/saml" },
+				},
+			},
+		],
+		[
+			"/sso/update-provider",
+			{ providerId: "acme", issuer: "https://idp.example.com" },
+		],
+		// Punctuation and inner spaces count in those collations.
+		[
+			"/sso/register",
+			{ providerId: "fire-base", issuer: "https://idp.example.com" },
+		],
+		[
+			"/sso/register",
+			{ providerId: "fire base", issuer: "https://idp.example.com" },
+		],
+		[
+			"/sso/register",
+			{
+				providerId: "acme",
+				issuer: "https://idp.example.com/local/oauth/firebase",
+			},
+		],
+		[
+			"/sso/register",
+			{
+				providerId: "acme-saml",
+				samlConfig: {
+					idpMetadata: {
+						metadata:
+							'<EntityDescriptor entityID="https://idp.example.com/metadata"><IDPSSODescriptor><SingleSignOnService Location="https://idp.example.com/local/oauth/firebase"/></IDPSSODescriptor></EntityDescriptor>',
+					},
+				},
+			},
+		],
+		["/scim/generate-token", { providerId: "okta" }],
+	])("should let %s through with %j", async (path, body) => {
+		const reached = vi.fn();
+		const { client } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({ firebaseAdminAuth: mockAdminAuth as any }),
+					foreignProviderEndpointsStub(reached),
+				],
+			},
+			{ disableTestUser: true },
+		);
+
+		const res = await client.$fetch(path as string, { method: "POST", body });
+
+		expect(res.error).toBeNull();
+		expect(reached).toHaveBeenCalledWith(path);
+	});
 
 	it("should not link a verified sign-in into a user registered first with an unverified token", async () => {
 		const { client, auth } = await getTestInstance(

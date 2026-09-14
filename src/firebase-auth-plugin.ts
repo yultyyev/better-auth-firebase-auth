@@ -32,6 +32,120 @@ export const FIREBASE_ACCOUNT_ISSUER = "local:oauth:firebase";
 
 const FIREBASE_PROVIDER_ID = "firebase";
 
+/** ICU's root collation at base level: case, accents and ignorables don't count. */
+const baseCollator = new Intl.Collator("und", { sensitivity: "base" });
+
+/**
+ * Characters that older UCA collations (utf8mb4_unicode_ci, unicode_520_ci)
+ * ignore but newer UCA versions and ICU give a weight.
+ */
+const OLD_UCA_IGNORABLE = new RegExp(
+	`[${String.fromCharCode(0x06de, 0x108d)}]`,
+	"g",
+);
+
+/** A trailing character that PAD SPACE collations drop or ICU ignores. */
+const isTrailingPadding = (char: string): boolean =>
+	/\p{Zs}/u.test(char) || baseCollator.compare(char, "") === 0;
+
+/**
+ * Whether a database collation that ignores case and accents could find
+ * `value` equal to `target`. ICU's root collation at base level stands in for
+ * the Unicode Collation Algorithm that MySQL's and MariaDB's unicode, 0900 and
+ * uca1400 collations and Postgres ICU collations use. On top of that, the
+ * characters older UCA versions ignore, trailing spaces or ignorables that PAD
+ * SPACE collations drop, and utf8mb4_general_ci's folds of ı to i and ß to s
+ * don't count either. Punctuation and leading spaces do. Checked against every
+ * assigned code point on MariaDB's utf8mb4 general, unicode, unicode_520 and
+ * 0900 collations.
+ */
+const collatesEqual = (value: string, target: string): boolean => {
+	const chars = [...value.replace(OLD_UCA_IGNORABLE, "")];
+	let end = chars.length;
+	while (end > 0 && isTrailingPadding(chars[end - 1] ?? "")) end--;
+	const comparable = chars.slice(0, end).join("");
+	return (
+		baseCollator.compare(comparable, target) === 0 ||
+		baseCollator.compare(
+			comparable.replace(/ı/g, "i").replace(/ß/g, "s"),
+			target,
+		) === 0
+	);
+};
+
+/** XML text with character references and predefined entities decoded. */
+const decodeXmlReferences = (xml: string): string =>
+	xml.replace(
+		/&(#x[0-9a-f]+|#[0-9]+|amp|lt|gt|quot|apos);/gi,
+		(entity, name: string) => {
+			const ref = name.toLowerCase();
+			const code = ref.startsWith("#x")
+				? Number.parseInt(ref.slice(2), 16)
+				: ref.startsWith("#")
+					? Number.parseInt(ref.slice(1), 10)
+					: undefined;
+			if (code !== undefined) {
+				return code <= 0x10ffff ? String.fromCodePoint(code) : entity;
+			}
+			return (
+				{ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" }[ref] ?? entity
+			);
+		},
+	);
+
+/** The entityID attributes of SAML metadata, as an XML parser reads them. */
+const entityIdsInMetadata = (xml: string): string[] =>
+	[...xml.matchAll(/\bentityID\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)].map((match) =>
+		decodeXmlReferences((match[1] ?? match[2] ?? "").replace(/[\t\n\r]/g, " ")),
+	);
+
+/** ASCII tab, line feed and carriage return. */
+const TAB_OR_LINE_BREAK = new RegExp(
+	`[${String.fromCharCode(0x09, 0x0a, 0x0d)}]`,
+	"g",
+);
+
+/**
+ * The forms `@better-auth/sso` can store a value in: as sent; trimmed with
+ * tabs and line breaks removed, as zod's `url()` stores an issuer; and with
+ * tabs and line breaks read as spaces, as samlify reads a SAML entity ID.
+ */
+const storedForms = (value: string): string[] => [
+	value,
+	value.trim().replace(TAB_OR_LINE_BREAK, ""),
+	value.replace(TAB_OR_LINE_BREAK, " "),
+];
+
+/**
+ * Whether a request to `@better-auth/sso` or `@better-auth/scim` would give a
+ * provider this plugin's account key: providerId "firebase", or on Better Auth
+ * 1.7.0 – 1.7.2 issuer "local:oauth:firebase" (an OIDC issuer or SAML IdP
+ * entity ID), compared the way database collations would in any form the
+ * value can be stored in.
+ */
+const claimsFirebaseAccountKey = (body: unknown): boolean => {
+	const { providerId, issuer, samlConfig } = (body ?? {}) as {
+		providerId?: unknown;
+		issuer?: unknown;
+		samlConfig?: { idpMetadata?: { entityID?: unknown; metadata?: unknown } };
+	};
+	const idpMetadata = samlConfig?.idpMetadata;
+	const issuers = [
+		issuer,
+		idpMetadata?.entityID,
+		...(typeof idpMetadata?.metadata === "string"
+			? entityIdsInMetadata(idpMetadata.metadata)
+			: []),
+	];
+	const claims = (value: unknown, key: string): boolean =>
+		typeof value === "string" &&
+		storedForms(value).some((form) => collatesEqual(form, key));
+	return (
+		claims(providerId, FIREBASE_PROVIDER_ID) ||
+		issuers.some((value) => claims(value, FIREBASE_ACCOUNT_ISSUER))
+	);
+};
+
 /**
  * Whether the configured Better Auth version keys accounts by
  * `(issuer, accountId)`. Only 1.7.0 – 1.7.2 declare `account.issuer`;
@@ -735,7 +849,29 @@ export const firebaseAuthPlugin = (
 		);
 	}
 
-	const hooks: BetterAuthPlugin["hooks"] = {};
+	const hooks: BetterAuthPlugin["hooks"] = {
+		before: [
+			{
+				// @better-auth/sso and @better-auth/scim let signed-in users create
+				// providers whose accounts share this plugin's account table. One that
+				// claims this plugin's account key would sign its logins in to whoever
+				// owns a matching Firebase UID, and its stored ID tokens could pass
+				// createOrUpdateUser's phone check.
+				matcher: (context) =>
+					context.path === "/sso/register" ||
+					context.path === "/sso/update-provider" ||
+					context.path === "/scim/generate-token",
+				handler: createAuthMiddleware(async (ctx) => {
+					if (claimsFirebaseAccountKey(ctx.body)) {
+						throw new APIError("UNPROCESSABLE_ENTITY", {
+							message:
+								"This providerId or issuer is reserved for Firebase accounts",
+						});
+					}
+				}),
+			},
+		],
+	};
 
 	if (overrideEmailPasswordFlow) {
 		if (!firebaseConfig) {
@@ -816,7 +952,7 @@ export const firebaseAuthPlugin = (
 			}
 		};
 
-		hooks.before = [
+		hooks.before?.push(
 			{
 				matcher: (context) =>
 					context.path?.startsWith("/sign-in/email") ?? false,
@@ -833,7 +969,7 @@ export const firebaseAuthPlugin = (
 					return { response };
 				}),
 			},
-		];
+		);
 	}
 
 	return {
