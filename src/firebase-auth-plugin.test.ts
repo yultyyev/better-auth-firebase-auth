@@ -94,6 +94,7 @@ describe("firebaseAuthPlugin", () => {
 		listSessions: vi.fn(),
 		deleteSessions: vi.fn(),
 		findAccounts: vi.fn(),
+		findAccountByProviderId: vi.fn(),
 	};
 
 	const mockDecodedToken = {
@@ -148,6 +149,7 @@ describe("firebaseAuthPlugin", () => {
 		mockInternalAdapter.listSessions.mockResolvedValue([]);
 		mockInternalAdapter.deleteSessions.mockResolvedValue(undefined);
 		mockInternalAdapter.findAccounts.mockResolvedValue([]);
+		mockInternalAdapter.findAccountByProviderId.mockResolvedValue(null);
 		mockInternalAdapter.createSession.mockResolvedValue(mockSession);
 		mockAdminAuth.verifyIdToken.mockResolvedValue(mockDecodedToken);
 		mockAdminAuth.getUser.mockResolvedValue({});
@@ -682,6 +684,29 @@ describe("firebaseAuthPlugin", () => {
 					expect.objectContaining({ userId: "user-123" }),
 				);
 				expect(mockInternalAdapter.createSession).toHaveBeenCalledOnce();
+			});
+
+			it("should re-parent the orphaned row findOAuthUser doesn't return instead of linking a second one (better-auth < 1.7)", async () => {
+				// No user has the orphaned row's user id or the token's email, so
+				// findOAuthUser returns nothing.
+				mockInternalAdapter.findAccountByProviderId.mockResolvedValue({
+					...mockAccount,
+					id: "orphaned-account",
+					userId: "deleted-user",
+				});
+
+				const ctx = createMockCtx();
+				await createOrUpdateUser(ctx as any, unverifiedToken, "id-token-abc");
+
+				expect(
+					mockInternalAdapter.findAccountByProviderId,
+				).toHaveBeenCalledWith("firebase-uid-123", "firebase");
+				expect(mockInternalAdapter.createUser).toHaveBeenCalledOnce();
+				expect(mockInternalAdapter.linkAccount).not.toHaveBeenCalled();
+				expect(mockInternalAdapter.updateAccount).toHaveBeenCalledWith(
+					"orphaned-account",
+					expect.objectContaining({ userId: "user-123" }),
+				);
 			});
 
 			it("should still link a verified email that findOAuthUser matched (better-auth < 1.7)", async () => {
@@ -2476,12 +2501,20 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		});
 		const firstUserId = (res1.data as any).user.id;
 
-		// Simulate a user row deleted without cascading to accounts.
+		// Delete the user without cascading to its account, as stores like
+		// Firestore do. The SQLite test database would cascade otherwise.
 		const ctx = await (auth as any).$context;
+		ctx.options.database.exec("PRAGMA foreign_keys = OFF");
 		await ctx.adapter.delete({
 			model: "user",
 			where: [{ field: "id", value: firstUserId }],
 		});
+		expect(
+			await ctx.adapter.findMany({
+				model: "account",
+				where: [{ field: "accountId", value: mockDecodedToken.uid }],
+			}),
+		).toHaveLength(1);
 
 		const res2 = await client.$fetch("/firebase-auth/sign-in-with-google", {
 			method: "POST",
@@ -2533,18 +2566,17 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 				model: "user",
 				where: [{ field: "id", value: first.data.user.id }],
 			});
-			// Better Auth 1.5 – 1.6 give the UID a new user and a second account row.
+			// The next sign-in gives the UID a new user and re-parents its row.
 			const second = await signIn();
 			const third = await signIn();
 
 			expect(third.data?.user.id).toBe(second.data.user.id);
+			// One row, re-parented, rather than a second row for the same UID.
 			const accounts = await ctx.adapter.findMany({
 				model: "account",
 				where: [{ field: "accountId", value: "returning-uid" }],
 			});
-			expect(accounts.map((a: any) => a.userId)).toEqual(
-				accounts.map(() => second.data.user.id),
-			);
+			expect(accounts.map((a: any) => a.userId)).toEqual([second.data.user.id]);
 		},
 	);
 
@@ -2591,6 +2623,65 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			where: [{ field: "accountId", value: "orphaned-uid" }],
 		});
 		expect(accounts.map((a: any) => a.userId)).toEqual([first.data.user.id]);
+	});
+
+	it("should keep signing in a UID whose account row an earlier version duplicated after deleting its user (better-auth < 1.7)", async () => {
+		const { client, auth } = await getTestInstance(
+			{
+				plugins: [
+					firebaseAuthPlugin({ firebaseAdminAuth: mockAdminAuth as any }),
+				],
+			},
+			{ disableTestUser: true },
+		);
+		const ctx = await (auth as any).$context;
+		if ("findAccountOwnerByKey" in ctx.internalAdapter) {
+			// Better Auth 1.7 re-parents orphans itself, and 1.7.3+ refuses a UID
+			// with two rows outright.
+			return;
+		}
+		mockAdminAuth.verifyIdToken.mockResolvedValue({
+			uid: "duplicated-uid",
+			email: "duplicated@example.com",
+			email_verified: false,
+			exp: Math.floor(Date.now() / 1000) + 3600,
+		});
+		const signIn = async (): Promise<any> =>
+			client.$fetch("/firebase-auth/sign-in-with-google", {
+				method: "POST",
+				body: { idToken: "duplicated-token" },
+			});
+
+		const first = await signIn();
+		ctx.options.database.exec("PRAGMA foreign_keys = OFF");
+		await ctx.adapter.delete({
+			model: "user",
+			where: [{ field: "id", value: first.data.user.id }],
+		});
+		// What earlier versions did on the next sign-in: a new user and a second
+		// row, which findOAuthUser returns after the orphaned one.
+		const current = await ctx.internalAdapter.createUser({
+			email: "duplicated@example.com",
+			name: "Current",
+			emailVerified: false,
+		});
+		await ctx.internalAdapter.linkAccount({
+			providerId: "firebase",
+			accountId: "duplicated-uid",
+			userId: current.id,
+		});
+
+		const res = await signIn();
+
+		expect(res.data?.user.id).toBe(current.id);
+		const accounts = await ctx.adapter.findMany({
+			model: "account",
+			where: [{ field: "accountId", value: "duplicated-uid" }],
+		});
+		expect(accounts.map((a: any) => a.userId)).toEqual([
+			current.id,
+			current.id,
+		]);
 	});
 
 	it("should backfill issuer on pre-1.7 rows so the account is found again", async () => {

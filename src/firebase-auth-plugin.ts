@@ -180,6 +180,10 @@ type LegacyInternalAdapter = {
 		user: User;
 		linkedAccount: Pick<Account, "id" | "userId"> | null;
 	} | null>;
+	findAccountByProviderId: (
+		accountId: string,
+		providerId: string,
+	) => Promise<Pick<Account, "id"> | null>;
 };
 
 /**
@@ -232,7 +236,15 @@ const findFirebaseAccountOwner = async (
 		FIREBASE_PROVIDER_ID,
 	);
 	if (!legacy) {
-		return { user: null, account: null };
+		// findOAuthUser also returns nothing for a UID whose row is orphaned when
+		// no user has the email. Re-parent that row, as Better Auth 1.7 does,
+		// instead of linking a second one that 1.7.3+ would refuse.
+		return {
+			user: null,
+			account: await (
+				internalAdapter as unknown as LegacyInternalAdapter
+			).findAccountByProviderId(decodedToken.uid, FIREBASE_PROVIDER_ID),
+		};
 	}
 	// findOAuthUser also returns a user matched only by email: with no account
 	// for the UID, or with an orphaned one. That user counts as linked only when
