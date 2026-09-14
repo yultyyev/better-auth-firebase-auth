@@ -67,8 +67,10 @@ jobs:
       fail-fast: false
       matrix:
         # Oldest supported line (peerDependencies floor), last line before the
-        # 1.7 account-identity change, and the current line.
-        better-auth: ["1.5", "1.6", "1.7"]
+        # 1.7 account-identity change, the last release that keys accounts by
+        # issuer (1.7.0 – 1.7.2; 1.7.3 went back to providerId), and the
+        # current line.
+        better-auth: ["1.5", "1.6", "1.7.2", "1.7"]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
