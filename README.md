@@ -261,6 +261,8 @@ firebaseAuthPlugin({
 
 Firebase handles password reset email delivery. No SendGrid, Resend, or other email provider is required.
 
+`sendPasswordReset` answers the same whether or not the email has an account. Also turn on Firebase's [email enumeration protection](https://docs.cloud.google.com/identity-platform/docs/admin/email-enumeration-protection) (Authentication → Settings → User actions), which is off by default for projects created before September 15, 2023. Without it, anyone with your web API key can ask Firebase directly which emails have accounts.
+
 ### Plugin config
 
 ```ts
