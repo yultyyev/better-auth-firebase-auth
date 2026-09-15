@@ -560,14 +560,16 @@ const firebaseErrorForLog = (error: Error) => ({
  * The error to throw when a Firebase call fails: an APIError with a fixed
  * message, after logging what failed. Firebase's own message can name the
  * project, describe the server's configuration or network, or tell whether
- * an email has an account, so it never reaches the response. A thrown value
- * that isn't an Error is returned as it is.
+ * an email has an account, so it never reaches the response. `messages` can
+ * give a Firebase error code its own fixed message. A thrown value that isn't
+ * an Error is returned as it is.
  */
 const firebaseAPIError = (
 	ctx: { context: Pick<GenericEndpointContext["context"], "logger"> },
 	error: unknown,
 	status: "BAD_REQUEST" | "UNAUTHORIZED",
 	message: string,
+	messages: Record<string, string> = {},
 ): unknown => {
 	if (!(error instanceof Error)) {
 		return error;
@@ -576,7 +578,20 @@ const firebaseAPIError = (
 		`[better-auth-firebase-auth] ${message}`,
 		firebaseErrorForLog(error),
 	);
-	return new APIError(status, { message });
+	const code = (error as { code?: unknown }).code;
+	return new APIError(status, {
+		message:
+			typeof code === "string" && Object.hasOwn(messages, code)
+				? messages[code]
+				: message,
+	});
+};
+
+/** Fixed messages for Firebase's refusals of a new password. */
+const NEW_PASSWORD_MESSAGES = {
+	"auth/weak-password": "Password does not meet the requirements",
+	"auth/password-does-not-meet-requirements":
+		"Password does not meet the requirements",
 };
 
 export const firebaseAuthPlugin = (
@@ -875,12 +890,20 @@ export const firebaseAuthPlugin = (
 						message: "Password reset confirmed",
 					});
 				} catch (error) {
-					if (error instanceof Error) {
-						throw new APIError("BAD_REQUEST", {
-							message: `Failed to confirm password reset: ${error.message}`,
-						});
-					}
-					throw error;
+					throw firebaseAPIError(
+						ctx,
+						error,
+						"BAD_REQUEST",
+						"Failed to confirm password reset",
+						{
+							...NEW_PASSWORD_MESSAGES,
+							"auth/invalid-action-code": "Invalid or expired reset code",
+							"auth/expired-action-code": "Invalid or expired reset code",
+							// The code's user was disabled or deleted after it was sent.
+							"auth/user-disabled": "Invalid or expired reset code",
+							"auth/user-not-found": "Invalid or expired reset code",
+						},
+					);
 				}
 			},
 		);
@@ -920,12 +943,12 @@ export const firebaseAuthPlugin = (
 						email,
 					});
 				} catch (error) {
-					if (error instanceof Error) {
-						throw new APIError("BAD_REQUEST", {
-							message: `Invalid or expired reset code: ${error.message}`,
-						});
-					}
-					throw error;
+					throw firebaseAPIError(
+						ctx,
+						error,
+						"BAD_REQUEST",
+						"Invalid or expired reset code",
+					);
 				}
 			},
 		);

@@ -1,9 +1,11 @@
 import { createAuthEndpoint } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import {
+	confirmPasswordReset,
 	createUserWithEmailAndPassword,
 	sendPasswordResetEmail,
 	signInWithEmailAndPassword,
+	verifyPasswordResetCode,
 } from "firebase/auth";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -2236,6 +2238,67 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			expect((res.error as any)?.message).toBe(
 				"Failed to send password reset email",
 			);
+			expect(log).toHaveBeenCalledWith(
+				"error",
+				expect.stringContaining("[better-auth-firebase-auth]"),
+				loggedFirebaseClientError(code),
+			);
+		},
+	);
+
+	it.each([
+		"auth/invalid-action-code",
+		"auth/expired-action-code",
+		"auth/user-disabled",
+	])(
+		"should not echo Firebase's error when verifying a password reset code fails with %s",
+		async (code) => {
+			const log = vi.fn();
+			const { client } = await instanceLoggingTo(log);
+			const error = firebaseClientError(code);
+			vi.mocked(verifyPasswordResetCode).mockRejectedValueOnce(error);
+
+			const res = await client.$fetch(
+				"/firebase-auth/verify-password-reset-code",
+				{ method: "POST", body: { oobCode: "reset-code" } },
+			);
+
+			expect((res.error as any)?.status).toBe(400);
+			expect((res.error as any)?.message).toBe("Invalid or expired reset code");
+			expect(log).toHaveBeenCalledWith(
+				"error",
+				expect.stringContaining("[better-auth-firebase-auth]"),
+				loggedFirebaseClientError(code),
+			);
+		},
+	);
+
+	it.each([
+		["auth/invalid-action-code", "Invalid or expired reset code"],
+		["auth/expired-action-code", "Invalid or expired reset code"],
+		["auth/user-disabled", "Invalid or expired reset code"],
+		["auth/user-not-found", "Invalid or expired reset code"],
+		["auth/weak-password", "Password does not meet the requirements"],
+		[
+			"auth/password-does-not-meet-requirements",
+			"Password does not meet the requirements",
+		],
+		["auth/network-request-failed", "Failed to confirm password reset"],
+	])(
+		"should answer %s from confirming a password reset with %j instead of Firebase's error",
+		async (code, message) => {
+			const log = vi.fn();
+			const { client } = await instanceLoggingTo(log);
+			const error = firebaseClientError(code);
+			vi.mocked(confirmPasswordReset).mockRejectedValueOnce(error);
+
+			const res = await client.$fetch("/firebase-auth/confirm-password-reset", {
+				method: "POST",
+				body: { oobCode: "reset-code", newPassword: "new-password-123" },
+			});
+
+			expect((res.error as any)?.status).toBe(400);
+			expect((res.error as any)?.message).toBe(message);
 			expect(log).toHaveBeenCalledWith(
 				"error",
 				expect.stringContaining("[better-auth-firebase-auth]"),
