@@ -2068,30 +2068,41 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		expect(data.session.token).toBeDefined();
 	});
 
-	it("should reject when verifyIdToken throws", async () => {
-		mockAdminAuth.verifyIdToken.mockRejectedValue(new Error("Invalid token"));
+	it.each([
+		"/firebase-auth/sign-in-with-google",
+		"/firebase-auth/sign-in-with-email",
+		"/firebase-auth/sign-in-with-phone",
+	])(
+		"should reject when verifyIdToken throws, without echoing its error, from %s",
+		async (path) => {
+			// Firebase Admin's error for a token from another project names this one.
+			const error = Object.assign(
+				new Error(
+					'Firebase ID token has incorrect "aud" (audience) claim. Expected "test-project" but got "other-project". Make sure the ID token comes from the same Firebase project as the service account used to authenticate this SDK.',
+				),
+				{ code: "auth/argument-error" },
+			);
+			mockAdminAuth.verifyIdToken.mockRejectedValue(error);
+			const log = vi.fn();
+			const { client } = await instanceLoggingTo(log);
 
-		const { client } = await getTestInstance(
-			{
-				plugins: [
-					firebaseAuthPlugin({
-						firebaseAdminAuth: mockAdminAuth as any,
-					}),
-				],
-			},
-			{ disableTestUser: true },
-		);
+			const res = await client.$fetch(path, {
+				method: "POST",
+				body: { idToken: "other-project-token" },
+			});
 
-		const res = await client.$fetch("/firebase-auth/sign-in-with-google", {
-			method: "POST",
-			body: { idToken: "bad-token" },
-		});
-
-		expect((res.error as any)?.status).toBe(401);
-		expect((res.error as any)?.message).toBe(
-			"Firebase token verification failed: Invalid token",
-		);
-	});
+			expect((res.error as any)?.status).toBe(401);
+			expect((res.error as any)?.message).toBe(
+				"Firebase token verification failed",
+			);
+			expect(JSON.stringify(res.error)).not.toContain("test-project");
+			expect(log).toHaveBeenCalledWith(
+				"error",
+				expect.stringContaining("[better-auth-firebase-auth]"),
+				{ name: "Error", code: "auth/argument-error", message: error.message },
+			);
+		},
+	);
 
 	it.each([
 		["/firebase-auth/sign-in-with-google", false],

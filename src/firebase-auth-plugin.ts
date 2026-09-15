@@ -632,12 +632,12 @@ export const firebaseAuthPlugin = (
 				try {
 					decodedToken = await adminAuth.verifyIdToken(idToken);
 				} catch (error) {
-					if (error instanceof Error) {
-						throw new APIError("UNAUTHORIZED", {
-							message: `Firebase token verification failed: ${error.message}`,
-						});
-					}
-					throw error;
+					throw firebaseAPIError(
+						ctx,
+						error,
+						"UNAUTHORIZED",
+						"Firebase token verification failed",
+					);
 				}
 
 				const result = await createOrUpdateUser(
@@ -709,12 +709,12 @@ export const firebaseAuthPlugin = (
 				try {
 					decodedToken = await adminAuth.verifyIdToken(idToken);
 				} catch (error) {
-					if (error instanceof Error) {
-						throw new APIError("UNAUTHORIZED", {
-							message: `Firebase token verification failed: ${error.message}`,
-						});
-					}
-					throw error;
+					throw firebaseAPIError(
+						ctx,
+						error,
+						"UNAUTHORIZED",
+						"Firebase token verification failed",
+					);
 				}
 
 				const result = await createOrUpdateUser(
@@ -745,12 +745,12 @@ export const firebaseAuthPlugin = (
 				try {
 					decodedToken = await adminAuth.verifyIdToken(idToken);
 				} catch (error) {
-					if (error instanceof Error) {
-						throw new APIError("UNAUTHORIZED", {
-							message: `Firebase token verification failed: ${error.message}`,
-						});
-					}
-					throw error;
+					throw firebaseAPIError(
+						ctx,
+						error,
+						"UNAUTHORIZED",
+						"Firebase token verification failed",
+					);
 				}
 
 				if (!decodedToken.phone_number) {
