@@ -1,3 +1,4 @@
+import { inspect } from "node:util";
 import { createAuthEndpoint } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import {
@@ -2159,40 +2160,158 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		},
 	);
 
-	it("should still return 401 for a Firebase sign-in error in the overrideEmailPasswordFlow hook", async () => {
-		const { client } = await getTestInstance(
-			{
-				plugins: [
-					firebaseAuthPlugin({
-						firebaseAdminAuth: mockAdminAuth as any,
-						overrideEmailPasswordFlow: true,
-						firebaseConfig: {
-							apiKey: "test-api-key",
-							authDomain: "test.firebaseapp.com",
-							projectId: "test-project",
-						},
-					}),
-				],
-			},
-			{ disableTestUser: true },
+	it.each([
+		["/firebase-auth/sign-in-with-email", { useClientSideTokens: false }],
+		["/sign-in/email", { overrideEmailPasswordFlow: true }],
+	] as const)(
+		"should answer a wrong password and an unknown email alike from %s, so the response doesn't tell whether the email has an account",
+		async (path, options) => {
+			const log = vi.fn();
+			const { client } = await instanceLoggingTo(log, options);
+			const signIn = (email: string) =>
+				client.$fetch(path, {
+					method: "POST",
+					body: { email, password: "wrong-password-123" },
+				});
+
+			// Firebase's errors with its email enumeration protection off.
+			const wrongPasswordError = firebaseClientError("auth/wrong-password");
+			vi.mocked(signInWithEmailAndPassword).mockRejectedValueOnce(
+				wrongPasswordError,
+			);
+			const known = await signIn("known@example.com");
+			const unknownEmailError = firebaseClientError("auth/user-not-found");
+			vi.mocked(signInWithEmailAndPassword).mockRejectedValueOnce(
+				unknownEmailError,
+			);
+			const unknown = await signIn("unknown@example.com");
+
+			expect((known.error as any)?.status).toBe(401);
+			expect((known.error as any)?.message).toBe(
+				"Firebase authentication failed",
+			);
+			expect(unknown).toEqual(known);
+			for (const error of [wrongPasswordError, unknownEmailError]) {
+				expect(log).toHaveBeenCalledWith(
+					"error",
+					expect.stringContaining("[better-auth-firebase-auth]"),
+					loggedFirebaseClientError(error.code),
+				);
+			}
+		},
+	);
+
+	it.each([
+		["auth/email-already-in-use", "User already exists. Use another email."],
+		["auth/weak-password", "Password does not meet the requirements"],
+		[
+			"auth/password-does-not-meet-requirements",
+			"Password does not meet the requirements",
+		],
+		["auth/network-request-failed", "Firebase authentication failed"],
+	])(
+		"should answer %s from the overrideEmailPasswordFlow sign-up with %j instead of Firebase's error",
+		async (code, message) => {
+			const log = vi.fn();
+			const { client } = await instanceLoggingTo(log, {
+				overrideEmailPasswordFlow: true,
+			});
+			const error = firebaseClientError(code);
+			vi.mocked(createUserWithEmailAndPassword).mockRejectedValueOnce(error);
+
+			const res = await client.$fetch("/sign-up/email", {
+				method: "POST",
+				body: {
+					email: "new@example.com",
+					password: "new-password-123",
+					name: "New User",
+				},
+			});
+
+			expect((res.error as any)?.status).toBe(401);
+			expect((res.error as any)?.message).toBe(message);
+			expect(log).toHaveBeenCalledWith(
+				"error",
+				expect.stringContaining("[better-auth-firebase-auth]"),
+				loggedFirebaseClientError(code),
+			);
+		},
+	);
+
+	it("should not echo verifyIdToken's error from the overrideEmailPasswordFlow hook", async () => {
+		const log = vi.fn();
+		const { client } = await instanceLoggingTo(log, {
+			overrideEmailPasswordFlow: true,
+		});
+		vi.mocked(signInWithEmailAndPassword).mockResolvedValueOnce({
+			user: { getIdToken: vi.fn().mockResolvedValue("firebase-token") },
+		} as any);
+		const error = Object.assign(
+			new Error(
+				'Firebase ID token has incorrect "aud" (audience) claim. Expected "test-project" but got "other-project".',
+			),
+			{ code: "auth/argument-error" },
 		);
-		vi.mocked(signInWithEmailAndPassword).mockRejectedValue(
-			new Error("Firebase: Error (auth/wrong-password)."),
-		);
+		mockAdminAuth.verifyIdToken.mockRejectedValue(error);
 
 		const res = await client.$fetch("/sign-in/email", {
 			method: "POST",
-			body: {
-				email: "integration@example.com",
-				password: "wrong-password-123",
-			},
+			body: { email: "known@example.com", password: "firebase-password-123" },
 		});
 
 		expect((res.error as any)?.status).toBe(401);
-		expect((res.error as any)?.message).toBe(
-			"Firebase authentication failed: Firebase: Error (auth/wrong-password).",
+		expect((res.error as any)?.message).toBe("Firebase authentication failed");
+		expect(log).toHaveBeenCalledWith(
+			"error",
+			expect.stringContaining("[better-auth-firebase-auth]"),
+			{ name: "Error", code: "auth/argument-error", message: error.message },
 		);
 	});
+
+	it.each([
+		["/firebase-auth/sign-in-with-email", { useClientSideTokens: false }],
+		["/sign-in/email", { overrideEmailPasswordFlow: true }],
+	] as const)(
+		"should not log the pending MFA credential of a sign-in from %s that needs a second factor",
+		async (path, options) => {
+			const log = vi.fn();
+			const { client } = await instanceLoggingTo(log, options);
+			// As the Firebase SDK throws it after the right password for an account
+			// with MFA: the server's response, pending credential included, in customData.
+			const error = Object.assign(
+				firebaseClientError("auth/multi-factor-auth-required"),
+				{
+					customData: {
+						appName: "better-auth-firebase",
+						_serverResponse: {
+							localId: "firebase-uid-mfa",
+							email: "mfa@example.com",
+							mfaPendingCredential: "pending-mfa-credential",
+						},
+					},
+				},
+			);
+			vi.mocked(signInWithEmailAndPassword).mockRejectedValueOnce(error);
+
+			const res = await client.$fetch(path, {
+				method: "POST",
+				body: { email: "mfa@example.com", password: "right-password-123" },
+			});
+
+			expect((res.error as any)?.status).toBe(401);
+			expect((res.error as any)?.message).toBe(
+				"Firebase authentication failed",
+			);
+			expect(log).toHaveBeenCalledWith(
+				"error",
+				expect.stringContaining("[better-auth-firebase-auth]"),
+				loggedFirebaseClientError("auth/multi-factor-auth-required"),
+			);
+			expect(inspect(log.mock.calls, { depth: null })).not.toContain(
+				"pending-mfa-credential",
+			);
+		},
+	);
 
 	it.each([
 		"auth/user-not-found",

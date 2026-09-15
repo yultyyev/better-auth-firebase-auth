@@ -696,12 +696,12 @@ export const firebaseAuthPlugin = (
 						);
 						idToken = await userCredential.user.getIdToken();
 					} catch (error) {
-						if (error instanceof Error) {
-							throw new APIError("UNAUTHORIZED", {
-								message: `Firebase authentication failed: ${error.message}`,
-							});
-						}
-						throw error;
+						throw firebaseAPIError(
+							ctx,
+							error,
+							"UNAUTHORIZED",
+							"Firebase authentication failed",
+						);
 					}
 				}
 
@@ -1038,12 +1038,21 @@ export const firebaseAuthPlugin = (
 				idToken = await userCredential.user.getIdToken();
 				decodedToken = await adminAuth.verifyIdToken(idToken);
 			} catch (error) {
-				if (error instanceof Error) {
-					throw new APIError("UNAUTHORIZED", {
-						message: `Firebase authentication failed: ${error.message}`,
-					});
-				}
-				throw error;
+				throw firebaseAPIError(
+					ctx,
+					error,
+					"UNAUTHORIZED",
+					"Firebase authentication failed",
+					// Sign-up can't hide whether an email is taken, so it still tells
+					// callers that, and that Firebase refused the password.
+					isSignUp
+						? {
+								...NEW_PASSWORD_MESSAGES,
+								"auth/email-already-in-use":
+									"User already exists. Use another email.",
+							}
+						: {},
+				);
 			}
 
 			const result = await createOrUpdateUser(
