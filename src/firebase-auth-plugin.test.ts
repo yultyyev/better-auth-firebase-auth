@@ -2,6 +2,7 @@ import { createAuthEndpoint } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import {
 	createUserWithEmailAndPassword,
+	sendPasswordResetEmail,
 	signInWithEmailAndPassword,
 } from "firebase/auth";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -49,6 +50,20 @@ const userNotFound = () =>
 		),
 		{ code: "auth/user-not-found" },
 	);
+
+/** An error as the Firebase client SDK throws it, e.g. for "auth/user-not-found". */
+const firebaseClientError = (code: string) =>
+	Object.assign(new Error(`Firebase: Error (${code}).`), {
+		name: "FirebaseError",
+		code,
+	});
+
+/** What the plugin logs of a `firebaseClientError(code)`. */
+const loggedFirebaseClientError = (code: string) => ({
+	name: "FirebaseError",
+	code,
+	message: `Firebase: Error (${code}).`,
+});
 
 /** The `aud` and `iss` of this test project's Firebase ID tokens. */
 const firebaseProject = {
@@ -1386,6 +1401,29 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 		vi.mocked(setSessionCookie).mockResolvedValue(undefined);
 	});
 
+	/** A Better Auth instance with the plugin and a Firebase config, logging to `log`. */
+	const instanceLoggingTo = (
+		log: (...args: any[]) => void,
+		options: Parameters<typeof firebaseAuthPlugin>[0] = {},
+	) =>
+		getTestInstance(
+			{
+				logger: { log },
+				plugins: [
+					firebaseAuthPlugin({
+						firebaseAdminAuth: mockAdminAuth as any,
+						firebaseConfig: {
+							apiKey: "test-api-key",
+							authDomain: "test.firebaseapp.com",
+							projectId: "test-project",
+						},
+						...options,
+					}),
+				],
+			},
+			{ disableTestUser: true },
+		);
+
 	it("should sign in with Google and create user + session in DB", async () => {
 		const { client } = await getTestInstance(
 			{
@@ -2142,6 +2180,69 @@ describe("integration: firebaseAuthPlugin with betterAuth", async () => {
 			"Firebase authentication failed: Firebase: Error (auth/wrong-password).",
 		);
 	});
+
+	it.each([
+		"auth/user-not-found",
+		"auth/too-many-requests",
+		"auth/invalid-recipient-email",
+		"auth/internal-error",
+	])(
+		"should answer a password reset email that fails with %s like a sent one, so the response doesn't tell whether the email has an account",
+		async (code) => {
+			const log = vi.fn();
+			const { client } = await instanceLoggingTo(log);
+			const sendReset = (email: string) =>
+				client.$fetch("/firebase-auth/send-password-reset", {
+					method: "POST",
+					body: { email },
+				});
+
+			vi.mocked(sendPasswordResetEmail).mockResolvedValueOnce(undefined);
+			const sent = await sendReset("known@example.com");
+			vi.mocked(sendPasswordResetEmail).mockRejectedValueOnce(
+				firebaseClientError(code),
+			);
+			const notSent = await sendReset("unknown@example.com");
+
+			expect(sent.error).toBeNull();
+			expect(notSent).toEqual(sent);
+			expect(log).toHaveBeenCalledWith(
+				code === "auth/user-not-found" ? "warn" : "error",
+				expect.stringContaining("[better-auth-firebase-auth]"),
+				loggedFirebaseClientError(code),
+			);
+		},
+	);
+
+	it.each([
+		"auth/invalid-email",
+		"auth/network-request-failed",
+		"auth/api-key-not-valid.-please-pass-a-valid-api-key.",
+	])(
+		"should not echo Firebase's error when a password reset email fails with %s, which is the same for every address",
+		async (code) => {
+			const log = vi.fn();
+			const { client } = await instanceLoggingTo(log);
+			vi.mocked(sendPasswordResetEmail).mockRejectedValueOnce(
+				firebaseClientError(code),
+			);
+
+			const res = await client.$fetch("/firebase-auth/send-password-reset", {
+				method: "POST",
+				body: { email: "known@example.com" },
+			});
+
+			expect((res.error as any)?.status).toBe(400);
+			expect((res.error as any)?.message).toBe(
+				"Failed to send password reset email",
+			);
+			expect(log).toHaveBeenCalledWith(
+				"error",
+				expect.stringContaining("[better-auth-firebase-auth]"),
+				loggedFirebaseClientError(code),
+			);
+		},
+	);
 
 	it("should not register endpoints when serverSideOnly is true", async () => {
 		const { client } = await getTestInstance(

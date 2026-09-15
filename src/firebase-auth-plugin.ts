@@ -527,6 +527,58 @@ const getFirebaseApp = async (
 		: apps[0];
 };
 
+/**
+ * Firebase's errors for a password reset email that are the same for every
+ * address, so an error response to them can't tell whether an address has an
+ * account: a malformed email, a network failure and configuration problems.
+ */
+const ADDRESS_INDEPENDENT_RESET_ERRORS = new Set([
+	"auth/invalid-email",
+	"auth/network-request-failed",
+	"auth/invalid-api-key",
+	"auth/api-key-not-valid.-please-pass-a-valid-api-key.",
+	"auth/operation-not-allowed",
+	"auth/invalid-continue-uri",
+	"auth/unauthorized-continue-uri",
+	"auth/missing-continue-uri",
+]);
+
+/**
+ * What gets logged of a Firebase error: its name, code and message, not the
+ * error itself. A Firebase SDK error's `customData` can hold the pending MFA
+ * credential of a sign-in that needs a second factor, and printed inside an
+ * object, line breaks in the message, which a token's claims can carry, are
+ * escaped instead of starting new log lines.
+ */
+const firebaseErrorForLog = (error: Error) => ({
+	name: error.name,
+	code: (error as { code?: unknown }).code,
+	message: error.message,
+});
+
+/**
+ * The error to throw when a Firebase call fails: an APIError with a fixed
+ * message, after logging what failed. Firebase's own message can name the
+ * project, describe the server's configuration or network, or tell whether
+ * an email has an account, so it never reaches the response. A thrown value
+ * that isn't an Error is returned as it is.
+ */
+const firebaseAPIError = (
+	ctx: { context: Pick<GenericEndpointContext["context"], "logger"> },
+	error: unknown,
+	status: "BAD_REQUEST" | "UNAUTHORIZED",
+	message: string,
+): unknown => {
+	if (!(error instanceof Error)) {
+		return error;
+	}
+	ctx.context.logger.error(
+		`[better-auth-firebase-auth] ${message}`,
+		firebaseErrorForLog(error),
+	);
+	return new APIError(status, { message });
+};
+
 export const firebaseAuthPlugin = (
 	options: FirebaseAuthPluginOptions = {},
 ): BetterAuthPlugin => {
@@ -731,6 +783,8 @@ export const firebaseAuthPlugin = (
 					});
 				}
 
+				const sent = { success: true, message: "Password reset email sent" };
+
 				try {
 					const { getAuth, sendPasswordResetEmail } = await import(
 						"firebase/auth"
@@ -749,17 +803,37 @@ export const firebaseAuthPlugin = (
 
 					await sendPasswordResetEmail(auth, email, actionCodeSettings);
 
-					return ctx.json({
-						success: true,
-						message: "Password reset email sent",
-					});
+					return ctx.json(sent);
 				} catch (error) {
-					if (error instanceof Error) {
-						throw new APIError("BAD_REQUEST", {
-							message: `Failed to send password reset email: ${error.message}`,
-						});
+					// With Firebase's email enumeration protection off, an email without an
+					// account fails with auth/user-not-found. Answering it like a sent email,
+					// as Firebase does with the protection on, keeps the response from
+					// telling whether the address has an account. Other Firebase errors get
+					// the same answer, since some, such as throttling or an address Firebase
+					// can't send to, happen only to an address that has an account. Only
+					// errors that are the same for every address get an error response.
+					const code = (error as { code?: unknown } | null)?.code;
+					if (
+						error instanceof Error &&
+						typeof code === "string" &&
+						code.startsWith("auth/") &&
+						!ADDRESS_INDEPENDENT_RESET_ERRORS.has(code)
+					) {
+						// An unknown email is routine. Anything else is an error: throttling
+						// of the server's own IP, for one, stops every email.
+						const level = code === "auth/user-not-found" ? "warn" : "error";
+						ctx.context.logger[level](
+							"[better-auth-firebase-auth] Password reset email not sent; answered as sent so the response doesn't reveal whether the address has an account",
+							firebaseErrorForLog(error),
+						);
+						return ctx.json(sent);
 					}
-					throw error;
+					throw firebaseAPIError(
+						ctx,
+						error,
+						"BAD_REQUEST",
+						"Failed to send password reset email",
+					);
 				}
 			},
 		);
