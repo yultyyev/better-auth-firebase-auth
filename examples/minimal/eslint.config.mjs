@@ -11,6 +11,11 @@ const config = [
 	...coreWebVitals,
 	...typescript,
 	{
+		// eslint-plugin-react's "detect" calls context.getFilename(), which
+		// ESLint 10 removed; read the installed React version directly instead.
+		settings: { react: { version: require("react/package.json").version } },
+	},
+	{
 		ignores: [".next/**", "node_modules/**", "next-env.d.ts"],
 	},
 ];
