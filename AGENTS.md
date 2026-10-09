@@ -28,6 +28,7 @@ The plugin currently implements a subset of Firebase Authentication methods:
 
 - **Google OAuth** (`/firebase-auth/sign-in-with-google` endpoint)
 - **Email/Password** (`/firebase-auth/sign-in-with-email` endpoint)
+- **Phone/SMS** (`/firebase-auth/sign-in-with-phone` endpoint) - Firebase sends and verifies the SMS code client-side; the endpoint verifies the resulting ID token
 - **Password Reset** with email verification and custom URLs
   - `/firebase-auth/send-password-reset` - Send reset email
   - `/firebase-auth/verify-password-reset-code` - Verify reset code
@@ -38,11 +39,8 @@ The plugin currently implements a subset of Firebase Authentication methods:
 **Social Providers:**
 - Facebook, GitHub, Twitter/X, Microsoft, Apple, Yahoo, LinkedIn
 
-**Phone/SMS Authentication:**
-- Phone number sign-in with SMS verification
-- Multi-factor authentication (MFA)
-
 **Other Methods:**
+- Multi-factor authentication (MFA)
 - Anonymous authentication
 - Custom authentication tokens
 - SAML/OIDC providers
@@ -78,9 +76,11 @@ The project is complete and includes:
   - `src/firebase-auth-plugin.ts` - Server plugin with endpoints and hooks
   - `src/firebase-auth-client-plugin.ts` - Client plugin with methods
   - `src/index.ts` - Main exports
+  - `src/cli.ts` - `npx better-auth-firebase-auth backfill-account-issuers` CLI (Better Auth 1.7 `account.issuer` backfill)
 - **Tests:**
-  - `src/firebase-auth-plugin.test.ts` - Server plugin tests (14 tests)
-  - `src/firebase-auth-client-plugin.test.ts` - Client plugin tests (10 tests)
+  - `src/firebase-auth-plugin.test.ts` - Server plugin tests
+  - `src/firebase-auth-client-plugin.test.ts` - Client plugin tests
+  - `src/cli.test.ts` - CLI tests
 - **CI/CD:** GitHub Actions workflows for testing and releases
 - **Example:** Minimal Next.js example project in `examples/minimal/`
 
@@ -92,6 +92,7 @@ src/
   firebase-auth-client-plugin.ts # Client plugin implementation (methods complete)
   index.ts                      # Export both plugins and types
   types.ts                      # Plugin-specific types and interfaces
+  cli.ts                        # backfill-account-issuers CLI (package bin)
 examples/
   minimal/                      # Minimal Next.js example project
 .github/
