@@ -11,24 +11,34 @@ allowBuilds:
   unrs-resolver: false
 
 overrides:
-  "@grpc/grpc-js": ">=1.14.4"
+  "@grpc/grpc-js": ">=1.14.5"
   "@types/node": "^24"
   "@tootallnate/once": "^3.0.1"
   baseline-browser-mapping: "^2.11.0"
-  brace-expansion: ">=5.0.9"
+  brace-expansion: ">=5.0.12"
   browserslist: "^4.28.7"
   defu: "^6.1.5"
   esbuild: ">=0.28.1"
   form-data@<2.5.6: ">=2.5.6"
-  js-yaml@>=4.0.0 <5.2.2: ">=5.2.2"
+  js-yaml@>=4.0.0 <5.4.1: ">=5.4.1"
   lodash: "^4.18.0"
   lodash-es: "^4.18.0"
   protobufjs: "^7.6.3"
-  undici: ">=7.29.0 <8"
+  undici: ">=7.29.1 <8"
   uuid@<11.1.0: ">=11.1.0"
   vite: ">=7.3.5 <8"
   fast-xml-parser: "^5.5.7"
   kysely: "^0.28.14"
-  next: "^16.3.5"
+  next: "^16.4.0"
   node-forge: "^1.4.0"
   postcss@<8.5.23: ">=8.5.23"
+  handlebars: "^4.7.10"
+  sharp: "^0.35.5"
+  source-map-js: "^1.2.2"
+
+auditConfig:
+  ignoreGhsas:
+    # braces <= 3.0.3 has no patched release. It is reached only through
+    # semantic-release (commit-analyzer > micromatch), which runs in the
+    # release workflow on our own config, never in the published package.
+    - GHSA-vfj7-8cjw-p6xm
