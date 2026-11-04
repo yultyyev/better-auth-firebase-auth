@@ -35,6 +35,9 @@ overrides:
   handlebars: "^4.7.10"
   sharp: "^0.35.5"
   source-map-js: "^1.2.2"
+  re2js: ">=2.8.7"
+  glob@>=9.0.0 <14.0.2: ">=14.0.2"
+  minimatch@>=9.0.0 <11.0.1: ">=11.0.1"
 
 auditConfig:
   ignoreGhsas:
@@ -42,3 +45,9 @@ auditConfig:
     # semantic-release (commit-analyzer > micromatch), which runs in the
     # release workflow on our own config, never in the published package.
     - GHSA-vfj7-8cjw-p6xm
+    # minimatch < 11.0.1. The overrides above move every 9.x and 10.x copy to
+    # 11. What is left is 3.1.5, pulled in only by eslint-config-next's plugins
+    # in examples/minimal. 3.x predates the optimizationLevel preprocessing
+    # (firstPhasePreProcess) the advisory is about, and moving it to 11 would
+    # break those plugins, which call the 3.x default export.
+    - GHSA-g3hv-75wg-m249
