@@ -8,9 +8,9 @@ Skipped by the in-major bump of 2026-10-17. One line per package:
 - `@types/node` 24.19.2 → 26.6.5 — follows CI's Node 24 (`^24` override in
   `pnpm-workspace.yaml`, Dependabot ignores its majors); move it together with
   `node-version` in `ci.yml`.
-- `firebase` 12.19.0 → 13.0.0 — Dependabot #84.
 - `typescript` (examples/minimal) 6.0.3 → 7.0.2 — pinned `~6.0.3` in f3691cd:
-  typescript-eslint has no release that runs on TypeScript 7 yet.
+  typescript-eslint has no release that runs on TypeScript 7 yet (8.72.1
+  still peers on `typescript <6.1.0`).
 - `vite` 7.3.7 → 8.3.4 — capped by the `vite: ">=7.3.5 <8"` override in
   `pnpm-workspace.yaml`.
 
