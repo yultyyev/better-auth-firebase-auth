@@ -10,9 +10,9 @@ Skipped by the in-major bump of 2026-10-17. One line per package:
   `node-version` in `ci.yml`.
 - `typescript` (examples/minimal) 6.0.3 → 7.0.2 — pinned `~6.0.3` in f3691cd:
   typescript-eslint has no release that runs on TypeScript 7 yet (8.72.1
-  still peers on `typescript <6.1.0`).
-- `vite` 7.3.7 → 8.3.4 — capped by the `vite: ">=7.3.5 <8"` override in
-  `pnpm-workspace.yaml`.
+  still peers on `typescript <6.1.0`). Dependabot ignores TypeScript majors.
+- `vite` 7.3.7 → 8.3.5 — capped by the `vite: ">=7.3.5 <8"` override in
+  `pnpm-workspace.yaml`. Dependabot ignores its majors.
 
 ## Transitive, capped by an override
 
