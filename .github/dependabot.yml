@@ -16,6 +16,16 @@ updates:
       # override); move it together with node-version in ci.yml.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # vite is capped below 8 by the pnpm-workspace.yaml override, so a major
+      # bump only rewrites the specifier the lockfile can't follow; raise the
+      # cap and the specifier together.
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      # examples/minimal pins typescript ~6.0.3 until typescript-eslint runs on
+      # TypeScript 7. This entry covers the whole workspace, so a future root
+      # major is skipped too; take TypeScript majors by hand.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: chore
       include: scope
