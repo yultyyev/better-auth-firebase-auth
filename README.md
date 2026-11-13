@@ -1,9 +1,9 @@
 # better-auth-firebase-auth
 
+[![skills.sh](https://skills.sh/b/yultyyev/better-auth-firebase-auth)](https://skills.sh/yultyyev/better-auth-firebase-auth)
 [![npm version](https://img.shields.io/npm/v/better-auth-firebase-auth.svg)](https://www.npmjs.com/package/better-auth-firebase-auth)
 [![CI](https://github.com/yultyyev/better-auth-firebase-auth/actions/workflows/release.yml/badge.svg)](https://github.com/yultyyev/better-auth-firebase-auth/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![skills.sh](https://skills.sh/b/yultyyev/better-auth-firebase-auth)](https://skills.sh/yultyyev/better-auth-firebase-auth)
 
 **`better-auth-firebase-auth`** is a [Better Auth](https://better-auth.com) plugin that lets you use Firebase Authentication — Phone SMS OTP, Google Sign-In, and Email/Password — while Better Auth manages sessions, users, organizations, and plugins.
 
@@ -494,6 +494,8 @@ The skill teaches AI assistants the correct import paths, phone auth flow, and c
 ```bash
 npx skills add yultyyev/better-auth-firebase-auth
 ```
+
+**Skill page:** [skills.sh/yultyyev/better-auth-firebase-auth/firebase-auth-better-auth](https://skills.sh/yultyyev/better-auth-firebase-auth/firebase-auth-better-auth)
 
 ---
 
