@@ -5,8 +5,10 @@ description: >-
   to a Better Auth app using the better-auth-firebase-auth plugin. Use when
   adding phone authentication to Better Auth without Twilio, integrating
   Firebase Auth with Better Auth sessions, working with the
-  better-auth-firebase-auth package, or deciding between Firebase Phone Auth
-  and Better Auth's built-in phoneNumber plugin.
+  better-auth-firebase-auth package, deciding between Firebase Phone Auth
+  and Better Auth's built-in phoneNumber plugin, moving an app from Firebase
+  Auth to Better Auth while keeping its existing Firebase users, or upgrading
+  such an app to Better Auth 1.7.
 ---
 
 # Firebase Auth + Better Auth
@@ -86,6 +88,16 @@ export const auth = betterAuth({
 ```ts
 import { createAuthClient } from "better-auth/react";
 import { firebaseAuthClientPlugin } from "better-auth-firebase-auth/client";
+import { getApps, initializeApp } from "firebase/app";
+
+// Initialize the Firebase web app once (Firebase Console → Project settings → Your apps)
+if (getApps().length === 0) {
+  initializeApp({
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  });
+}
 
 export const authClient = createAuthClient({
   plugins: [firebaseAuthClientPlugin()],
@@ -182,6 +194,22 @@ Remember to create the required Firestore composite index on the verification co
 | `sessionExpiresInDays` | `7` | Better Auth session lifetime |
 | `passwordResetUrl` | — | Custom URL for password reset page |
 | `getPhoneUserFallbackEmail` | `${uid}@firebase.local` | Stable email for phone-only users |
+
+---
+
+## Moving an existing Firebase Auth app to Better Auth
+
+Keep Firebase Authentication for sign-in and add both plugins as above. Existing Firebase users need no import or password export: on each user's first sign-in through the plugin, Better Auth creates the user and links it to the Firebase UID (`providerId: "firebase"`, `accountId: <uid>`). A Better Auth user that already has the same email is linked only when both the Firebase token's email and that user's email are verified.
+
+---
+
+## Better Auth 1.7 (existing apps only)
+
+New apps: use Better Auth 1.7.3 or later and skip this section.
+
+- **Upgrading from 1.5 – 1.6:** go straight to 1.7.3+. Firebase account rows need no backfill.
+- **The database already ran 1.7.0 – 1.7.2:** after moving to 1.7.3+, relax or drop the `issuer` column (1.7.3+ no longer writes it) and delete duplicate Firebase account rows for the same `accountId`. See [Upgrading an existing app to Better Auth 1.7](https://github.com/yultyyev/better-auth-firebase-auth#upgrading-an-existing-app-to-better-auth-17).
+- **Staying on 1.7.0 – 1.7.2:** backfill `issuer` on Firebase rows with `npx better-auth-firebase-auth backfill-account-issuers` (dry run), then the same command with `--apply`.
 
 ---
 
