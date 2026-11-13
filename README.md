@@ -5,13 +5,115 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![skills.sh](https://skills.sh/b/yultyyev/better-auth-firebase-auth)](https://skills.sh/yultyyev/better-auth-firebase-auth)
 
-**`better-auth-firebase-auth`** is a [Better Auth](https://better-auth.com) plugin that lets you use Firebase Authentication — Phone SMS OTP, Google Sign-In, and Email/Password — while Better Auth manages sessions, users, organizations, and plugins.
+**Add Firebase Authentication sign-in to a [Better Auth](https://www.better-auth.com) app.** `better-auth-firebase-auth` is a Better Auth plugin for phone (SMS) codes, Google Sign-In and email/password through Firebase. Firebase checks who the user is; Better Auth owns the session, users, organizations and plugins. Setup is one server plugin, one client plugin and one call per sign-in method. It is listed on Better Auth's [community plugins](https://www.better-auth.com/docs/plugins/community-plugins) page.
 
-Firebase verifies identity. Better Auth owns the session. No Twilio required for phone auth. No email provider required for password reset.
+- **No extra services:** Firebase sends the SMS codes (no Twilio) and the password reset emails (no SendGrid or Resend).
+- **Keep the data in Firestore too:** pair it with [`better-auth-firestore`](https://github.com/yultyyev/better-auth-firestore) so Better Auth needs no second database. This package signs users in; that one stores the data. See [Firestore Adapter](#firestore-adapter).
+- **Install:** `pnpm add better-auth-firebase-auth better-auth firebase firebase-admin`
+- **Docs:** [Quick start](#quick-start) • [Phone](#firebase-phone-authentication-with-better-auth) • [Google](#google-sign-in) • [Email/password](#emailpassword-authentication) • [FAQ](#frequently-asked-questions)
 
-- **Install:** `pnpm add better-auth-firebase-auth firebase-admin firebase better-auth`
+> *"Add phone sign-in with Firebase to my Better Auth app."*
+>
+> With the [agent skill](#set-it-up-with-your-ai-agent) installed, Claude Code, Cursor or Codex follows it: installs the packages, keeps `firebase-admin` out of client code, adds both plugins, builds the reCAPTCHA and SMS code flow, and passes the Firebase ID token to `authClient.signInWithPhone({ idToken })`.
 
-> **Upgrading to Better Auth 1.7?** Go straight to 1.7.3 or later — Firebase account rows need no backfill there. Apps that already ran 1.7.0 – 1.7.2 have cleanup to do — see [Upgrading an existing app to Better Auth 1.7](#upgrading-an-existing-app-to-better-auth-17).
+---
+
+## Quick start
+
+1. **Install** the plugin with Better Auth and both Firebase SDKs (pnpm, yarn and bun work the same way):
+
+   ```bash
+   npm install better-auth-firebase-auth better-auth firebase firebase-admin
+   ```
+
+2. **Turn on a sign-in method** in [Firebase Console](https://console.firebase.google.com/) → **Authentication** → **Sign-in method**. This example uses **Google**.
+
+3. **Server:** initialize Firebase Admin once and add the plugin (`lib/auth.ts`). Better Auth still needs its own database and `BETTER_AUTH_SECRET`, as in its [installation guide](https://www.better-auth.com/docs/installation).
+
+   ```ts
+   import { betterAuth } from "better-auth";
+   import { firebaseAuthPlugin } from "better-auth-firebase-auth/server";
+   import { cert, getApps, initializeApp } from "firebase-admin/app";
+   import { getAuth } from "firebase-admin/auth";
+
+   if (getApps().length === 0) {
+     initializeApp({
+       credential: cert({
+         projectId: process.env.FIREBASE_PROJECT_ID,
+         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+         privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+       }),
+     });
+   }
+
+   export const auth = betterAuth({
+     plugins: [firebaseAuthPlugin({ firebaseAdminAuth: getAuth() })],
+   });
+   ```
+
+4. **Client:** initialize Firebase and add the client plugin (`lib/auth-client.ts`). The values come from Firebase Console → **Project settings** → **Your apps**.
+
+   ```ts
+   import { createAuthClient } from "better-auth/react";
+   import { firebaseAuthClientPlugin } from "better-auth-firebase-auth/client";
+   import { getApps, initializeApp } from "firebase/app";
+
+   if (getApps().length === 0) {
+     initializeApp({
+       apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+       authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+     });
+   }
+
+   export const authClient = createAuthClient({
+     plugins: [firebaseAuthClientPlugin()],
+   });
+   ```
+
+5. **Sign in:** Firebase signs the user in, and the plugin turns its ID token into a Better Auth session.
+
+   ```ts
+   import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+   import { authClient } from "@/lib/auth-client";
+
+   const result = await signInWithPopup(getAuth(), new GoogleAuthProvider());
+   await authClient.signInWithGoogle({ idToken: await result.user.getIdToken() });
+   ```
+
+That's the whole setup. Phone and email/password sign-in use the same two plugins; see [Firebase Phone Authentication](#firebase-phone-authentication-with-better-auth) and [Email/Password Authentication](#emailpassword-authentication).
+
+---
+
+## Set it up with your AI agent
+
+Install the [agent skill](https://skills.sh/yultyyev/better-auth-firebase-auth/firebase-auth-better-auth) once, and Claude Code, Cursor, Codex, Copilot, Windsurf and [70+ other agents](https://skills.sh) can set the plugin up from a plain request:
+
+```bash
+npx skills add yultyyev/better-auth-firebase-auth
+```
+
+Then paste one of these prompts:
+
+```text
+Add Firebase phone (SMS) sign-in to my Better Auth app.
+```
+
+```text
+Add Google sign-in through Firebase to my Better Auth app.
+```
+
+```text
+Add email/password sign-in and password reset through Firebase to my Better Auth app.
+```
+
+```text
+Move my app from Firebase Auth to Better Auth and keep my existing Firebase users.
+```
+
+```text
+Should I use Firebase Phone Auth or Better Auth's phoneNumber plugin?
+```
 
 ---
 
@@ -32,15 +134,7 @@ Email/Password   ──┘    Token           Organizations
 4. The plugin verifies the token with Firebase Admin SDK
 5. The plugin creates or links a Better Auth user and session
 
-Better Auth owns the app session from step 5 onward. Firebase is used only as an identity verifier.
-
-A Firebase sign-in is linked to an existing Better Auth user with the same email only when both the token's email and that user's email are verified. Set `account.accountLinking.requireLocalEmailVerified: false` to drop the second check, as in Better Auth's own account linking.
-
-A phone sign-in without an email uses the address from `getPhoneUserFallbackEmail`, which nobody can verify. If a Better Auth user already has that address, the sign-in is linked to it only when every account on that user is a Firebase account whose last ID token carried the same number and whose Firebase user no longer exists, as after a Firebase user is deleted and the number signs up again under a new UID. That sign-in ends the user's other sessions. The plugin checks with the Admin SDK's `getUser`, so it needs credentials that can read users, and with Identity Platform tenants an Admin instance scoped to the token's tenant. Any other match is refused with 401, which is also what a fallback that isn't unique per phone number (a constant, say) gets instead of merging phone users. With a fallback built from the phone number, delete the Better Auth user whenever you delete its Firebase user; otherwise whoever gets the number next signs in to that account.
-
-A Firebase account row left behind when its user was deleted without cascading (for example on Firestore) moves to the user that UID signs in as next, or to one the checks above allow, and never to a user those checks refuse, since that would hand the UID someone else's account. Earlier versions of this plugin on Better Auth 1.5 – 1.6 added a second row for the UID instead. Delete one of the two before upgrading to Better Auth 1.7.3 or later, which refuses a UID with two rows.
-
-This plugin's account rows are keyed by the providerId `firebase`, or on Better Auth 1.7.0 – 1.7.2 by the issuer `local:oauth:firebase`. Providers from `@better-auth/sso` and `@better-auth/scim` share that account table, so one that claims either key could sign its logins in to Firebase users' accounts. The plugin refuses to register or update an SSO provider, or create a SCIM token, whose providerId, OIDC issuer or SAML IdP entity ID matches either key the way database collations compare them, ignoring case, accents, ignorable characters and the whitespace the SSO plugin trims or turns into spaces. If you created such a provider or token before, delete it.
+Better Auth owns the app session from step 5 onward. Firebase is used only as an identity verifier. How a sign-in links to an existing Better Auth user is covered in [Account linking and security](#account-linking-and-security).
 
 ---
 
@@ -58,22 +152,6 @@ Social providers (Facebook, GitHub, Twitter/X, Microsoft, Apple, LinkedIn), anon
 
 ---
 
-## Installation
-
-```bash
-# npm
-npm install better-auth-firebase-auth firebase-admin firebase better-auth
-
-# pnpm
-pnpm add better-auth-firebase-auth firebase-admin firebase better-auth
-
-# yarn
-yarn add better-auth-firebase-auth firebase-admin firebase better-auth
-
-# bun
-bun add better-auth-firebase-auth firebase-admin firebase better-auth
-```
-
 ## Import Paths
 
 The package exposes separate entry points so bundlers never include server-only `firebase-admin` in client bundles:
@@ -87,38 +165,6 @@ import { firebaseAuthClientPlugin } from "better-auth-firebase-auth/client";
 
 // Main entry (backward compat — prefer specific paths above)
 import { firebaseAuthPlugin, firebaseAuthClientPlugin } from "better-auth-firebase-auth";
-```
-
----
-
-## Setup
-
-**Server (`lib/auth.ts`):**
-
-```ts
-import { betterAuth } from "better-auth";
-import { firebaseAuthPlugin } from "better-auth-firebase-auth/server";
-import { getAuth } from "firebase-admin/auth";
-
-export const auth = betterAuth({
-  plugins: [
-    firebaseAuthPlugin({
-      useClientSideTokens: true,
-      firebaseAdminAuth: getAuth(),
-    }),
-  ],
-});
-```
-
-**Client (`lib/auth-client.ts`):**
-
-```ts
-import { createAuthClient } from "better-auth/react";
-import { firebaseAuthClientPlugin } from "better-auth-firebase-auth/client";
-
-export const authClient = createAuthClient({
-  plugins: [firebaseAuthClientPlugin()],
-});
 ```
 
 ---
@@ -326,6 +372,18 @@ firebaseAuthPlugin({
 
 ---
 
+## Account linking and security
+
+A Firebase sign-in is linked to an existing Better Auth user with the same email only when both the token's email and that user's email are verified. Set `account.accountLinking.requireLocalEmailVerified: false` to drop the second check, as in Better Auth's own account linking.
+
+A phone sign-in without an email uses the address from `getPhoneUserFallbackEmail`, which nobody can verify. If a Better Auth user already has that address, the sign-in is linked to it only when every account on that user is a Firebase account whose last ID token carried the same number and whose Firebase user no longer exists, as after a Firebase user is deleted and the number signs up again under a new UID. That sign-in ends the user's other sessions. The plugin checks with the Admin SDK's `getUser`, so it needs credentials that can read users, and with Identity Platform tenants an Admin instance scoped to the token's tenant. Any other match is refused with 401, which is also what a fallback that isn't unique per phone number (a constant, say) gets instead of merging phone users. With a fallback built from the phone number, delete the Better Auth user whenever you delete its Firebase user; otherwise whoever gets the number next signs in to that account.
+
+A Firebase account row left behind when its user was deleted without cascading (for example on Firestore) moves to the user that UID signs in as next, or to one the checks above allow, and never to a user those checks refuse, since that would hand the UID someone else's account. Earlier versions of this plugin on Better Auth 1.5 – 1.6 added a second row for the UID instead. Delete one of the two before upgrading to Better Auth 1.7.3 or later, which refuses a UID with two rows.
+
+This plugin's account rows are keyed by the providerId `firebase`, or on Better Auth 1.7.0 – 1.7.2 by the issuer `local:oauth:firebase`. Providers from `@better-auth/sso` and `@better-auth/scim` share that account table, so one that claims either key could sign its logins in to Firebase users' accounts. The plugin refuses to register or update an SSO provider, or create a SCIM token, whose providerId, OIDC issuer or SAML IdP entity ID matches either key the way database collations compare them, ignoring case, accents, ignorable characters and the whitespace the SSO plugin trims or turns into spaces. If you created such a provider or token before, delete it.
+
+---
+
 ## Firebase Phone Auth vs Better Auth phoneNumber plugin
 
 Both approaches add phone authentication to a Better Auth app. The right choice depends on who manages SMS delivery.
@@ -356,6 +414,8 @@ One build of the plugin supports every Better Auth release since 1.5. The plugin
 | 1.7.0 – 1.7.2 | Supported — accounts keyed by `(issuer, accountId)`; existing rows need a one-time issuer backfill |
 | 1.5.x – 1.6.x | Supported — accounts keyed by `(providerId, accountId)` |
 | < 1.5 | Not supported |
+
+**Starting a new app?** Use Better Auth 1.7.3 or later. Nothing below applies to you.
 
 ### Upgrading an existing app to Better Auth 1.7
 
@@ -432,7 +492,19 @@ Install `better-auth-firebase-auth`, add `firebaseAuthPlugin` to your Better Aut
 
 ### Can I use Firebase Authentication with Better Auth?
 
-Yes. `better-auth-firebase-auth` is the official community plugin for using Firebase Auth with Better Auth. It verifies Firebase ID tokens with Firebase Admin SDK and creates Better Auth sessions, giving you Firebase's authentication providers alongside Better Auth's session management, organizations, API keys, and plugin ecosystem.
+Yes. `better-auth-firebase-auth` is a Better Auth plugin for Firebase Auth, listed on Better Auth's [community plugins](https://www.better-auth.com/docs/plugins/community-plugins) page. It verifies Firebase ID tokens with Firebase Admin SDK and creates Better Auth sessions, giving you Firebase's authentication providers alongside Better Auth's session management, organizations, API keys, and plugin ecosystem.
+
+### How do I migrate from Firebase Auth to Better Auth?
+
+Keep Firebase Authentication for sign-in and add this plugin. Existing Firebase users sign in as before; on each user's first sign-in through the plugin, Better Auth creates their user and links it to their Firebase UID. There are no password hashes to export and no import step. An existing Better Auth user with the same email is linked only when both emails are verified.
+
+### How do I add Firebase Auth to Better Auth with Claude Code or Cursor?
+
+Install the agent skill with `npx skills add yultyyev/better-auth-firebase-auth`, then ask in plain words, for example "Add phone sign-in with Firebase to my Better Auth app." The skill covers phone, Google and email/password sign-in, password reset, the Firestore adapter, and choosing between Firebase Phone Auth and Better Auth's `phoneNumber` plugin. More prompts are in [Set it up with your AI agent](#set-it-up-with-your-ai-agent).
+
+### Can I use Better Auth with Firebase and no SQL database?
+
+Yes. Pair this plugin with [`better-auth-firestore`](https://github.com/yultyyev/better-auth-firestore), which stores Better Auth's users, sessions and accounts in your project's Firestore. This plugin signs users in through Firebase Authentication; the adapter stores the data. See [Firestore Adapter](#firestore-adapter).
 
 ### Does Better Auth support Firebase Phone Authentication?
 
