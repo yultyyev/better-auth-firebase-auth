@@ -217,7 +217,7 @@ New apps: use Better Auth 1.7.3 or later and skip this section.
 
 | Runtime | Supported |
 |---|---|
-| Node 18+ | ✅ |
+| Node 22+ | ✅ |
 | Next.js on Vercel (Node.js runtime) | ✅ Recommended |
 | Cloud Functions / Cloud Run | ✅ |
 | Vercel Edge Runtime (`runtime = 'edge'`) | ❌ Admin SDK requires Node.js |
