@@ -87,7 +87,7 @@
     "firebase": "^13.3.0",
     "firebase-admin": "^14.5.0",
     "rimraf": "^6.1.4",
-    "semantic-release": "^25.0.9",
+    "semantic-release": "^26.0.1",
     "typescript": "^7.0.2",
     "vite": "^7.3.8",
     "vitest": "^5.1.0"
